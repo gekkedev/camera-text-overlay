@@ -1,0 +1,15 @@
+{
+  "name": "camera-text-overlay",
+  "version": "1.0.0",
+  "description": "",
+  "main": "camera-text-overlay.user.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "gekkedev",
+  "license": "MIT",
+  "devDependencies": {
+    "prettier": "^3.8.1"
+  }
+}
