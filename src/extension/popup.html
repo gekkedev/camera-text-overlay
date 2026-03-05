@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Camera Text Overlay</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        width: 400px;
+        padding: 20px;
+        background: #f5f5f5;
+      }
+
+      .container {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      h1 {
+        font-size: 18px;
+        margin-bottom: 20px;
+        color: #333;
+      }
+
+      .form-group {
+        margin-bottom: 15px;
+      }
+
+      label {
+        display: block;
+        font-weight: 500;
+        color: #555;
+        margin-bottom: 8px;
+        font-size: 14px;
+      }
+
+      input[type="text"],
+      select {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        font-family: inherit;
+      }
+
+      input[type="text"]:focus,
+      select:focus {
+        outline: none;
+        border-color: #6200ea;
+        box-shadow: 0 0 0 2px rgba(98, 0, 234, 0.1);
+      }
+
+      input[type="color"] {
+        width: 100%;
+        height: 40px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+
+      input[type="color"]:focus {
+        outline: none;
+        border-color: #6200ea;
+      }
+
+      .button-group {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+      }
+
+      button {
+        flex: 1;
+        padding: 10px;
+        border: none;
+        border-radius: 4px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        font-family: inherit;
+      }
+
+      .btn-enable {
+        background-color: #6200ea;
+        color: white;
+      }
+
+      .btn-enable:hover {
+        background-color: #7c3aed;
+      }
+
+      .btn-enable:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+      }
+
+      .btn-disable {
+        background-color: #d32f2f;
+        color: white;
+      }
+
+      .btn-disable:hover {
+        background-color: #f44336;
+      }
+
+      .status {
+        padding: 12px;
+        border-radius: 4px;
+        margin-bottom: 15px;
+        font-weight: 500;
+        text-align: center;
+      }
+
+      .status.enabled {
+        background-color: #c8e6c9;
+        color: #2e7d32;
+      }
+
+      .status.disabled {
+        background-color: #ffcccc;
+        color: #c62828;
+      }
+
+      .divider {
+        height: 1px;
+        background: #e0e0e0;
+        margin: 15px 0;
+      }
+
+      .info-text {
+        font-size: 12px;
+        color: #888;
+        margin-top: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🎥 Camera Text Overlay</h1>
+
+      <div id="status" class="status disabled">Overlay Disabled</div>
+
+      <div class="form-group">
+        <label for="overlayText">Overlay Text</label>
+        <input type="text" id="overlayText" placeholder="Enter text to display" />
+        <div class="info-text">What will others see on your camera</div>
+      </div>
+
+      <div class="form-group">
+        <label for="selectedFont">Font</label>
+        <select id="selectedFont">
+          <option value="Titillium Web">Titillium Web</option>
+          <option value="Arial">Arial</option>
+          <option value="Verdana">Verdana</option>
+          <option value="Times New Roman">Times New Roman</option>
+          <option value="Courier New">Courier New</option>
+          <option value="Georgia">Georgia</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="bgColor">Background Color</label>
+        <input type="color" id="bgColor" />
+      </div>
+
+      <div class="form-group">
+        <label for="textColor">Text Color</label>
+        <input type="color" id="textColor" />
+      </div>
+
+      <div class="button-group">
+        <button id="saveBtn" class="btn-enable">Save Settings</button>
+        <button id="toggleBtn" class="btn-enable">Enable Overlay</button>
+      </div>
+    </div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
