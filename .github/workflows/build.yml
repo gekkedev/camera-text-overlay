@@ -1,0 +1,73 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 9
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'pnpm'
+        
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+      
+    - name: Build project
+      run: pnpm run build
+      
+    - name: Check if userscript was built
+      run: |
+        if [ ! -f camera-text-overlay.user.js ]; then
+          echo "ERROR: Userscript not built!"
+          exit 1
+        fi
+        echo "✓ Userscript exists ($(wc -c < camera-text-overlay.user.js) bytes)"
+        
+    - name: Check if extension was built
+      run: |
+        if [ ! -d dist/extension ]; then
+          echo "ERROR: Extension directory not built!"
+          exit 1
+        fi
+        echo "✓ Extension directory exists"
+        ls -lah dist/extension/
+        
+    - name: Upload userscript artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: userscript
+        path: camera-text-overlay.user.js
+        retention-days: 7
+        
+    - name: Upload extension artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: extension
+        path: dist/extension/
+        retention-days: 7
+        
+    - name: Build summary
+      run: |
+        echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "✅ Build completed successfully!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Artifacts" >> $GITHUB_STEP_SUMMARY
+        echo "- 📜 Userscript: $(wc -c < camera-text-overlay.user.js) bytes" >> $GITHUB_STEP_SUMMARY
+        echo "- 📦 Extension: $(du -sh dist/extension | cut -f1)" >> $GITHUB_STEP_SUMMARY
