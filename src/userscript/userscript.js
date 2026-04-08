@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Camera Text Overlay
 // @namespace    https://github.com/gekkedev/camera-text-overlay
-// @version      2.0
+// @version      2.0.1
 // @description  Replaces the camera stream with specified text for others to see
 // @author       gekkedev
 // @updateURL    https://raw.githubusercontent.com/gekkedev/camera-text-overlay/main/camera-text-overlay.user.js
@@ -11,24 +11,25 @@
 // @grant        GM_setValue
 // @grant        GM_registerMenuCommand
 // @grant        GM_unregisterMenuCommand
+// @grant        unsafeWindow
+// @run-at       document-start
 // ==/UserScript==
 
 ;(function () {
   "use strict"
   /*__OVERLAY_SHARED__*/
 
+  const pageWindow = typeof unsafeWindow !== "undefined" ? unsafeWindow : window
+
   class UserscriptOverlayManager extends TextOverlayManager {
     constructor() {
-      super()
+      super({
+        mediaDevices: pageWindow?.navigator?.mediaDevices || navigator.mediaDevices
+      })
       this.menuCommandIds = []
       this.canRefreshMenuCommands = typeof GM_unregisterMenuCommand === "function"
       this.menuCommandsRegistered = false
-      this.onFirstCameraRequest = () => {
-        injectGoogleFonts()
-        if (!this.menuCommandsRegistered) {
-          this.updateMenuCommands()
-        }
-      }
+      this.onFirstCameraRequest = () => injectGoogleFonts()
     }
 
     loadPreferences() {
@@ -92,6 +93,7 @@
         this.bgColor = modalData.bgColorInput.value
         this.textColor = modalData.textColorInput.value
         this.savePreferences()
+        this.setEnabled(this.enabled)
         document.body.removeChild(modalData.overlay)
       }
 
@@ -108,18 +110,23 @@
         GM_setValue("textColor", DEFAULT_OVERLAY_SETTINGS.textColor)
         GM_setValue("overlayEnabled", DEFAULT_OVERLAY_SETTINGS.enabled)
         this.loadPreferences()
-        this.updateMenuCommands()
+        this.setEnabled(this.enabled)
         alert("Settings reset to defaults")
       }
     }
 
     toggleFeature() {
+      const nativeGetUserMedia = this.getNativeGetUserMedia()
+      if (!nativeGetUserMedia) {
+        alert("Camera access is not available on this page")
+        return
+      }
+
       if (this.enabled) {
         const previewData = this.createPreviewModal()
         document.body.appendChild(previewData.overlay)
 
-        navigator.mediaDevices
-          .oldGetUserMedia({ video: true })
+        nativeGetUserMedia({ video: true })
           .then(stream => {
             previewData.previewVideo.srcObject = stream
 
@@ -169,6 +176,7 @@
 
     initialize() {
       this.loadPreferences()
+      this.updateMenuCommands()
       this.patchGetUserMedia()
     }
   }

@@ -1,4 +1,4 @@
-// Runs in the page context (injected by background.js)
+// Runs in the page context via the manifest `MAIN` world content script.
 
 /*__OVERLAY_SHARED__*/
 

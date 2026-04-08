@@ -1,5 +1,5 @@
 // Content script for Chrome extension
-// Uses background scripting API to inject overlay in page context
+// Relays saved settings into the page-context bridge.
 
 /*__OVERLAY_SHARED__*/
 
@@ -23,10 +23,6 @@ function sendSettingsToPage(settings) {
     "*"
   )
 }
-
-chrome.runtime.sendMessage({ type: "INJECT_OVERLAY" }).catch(() => {
-  // Ignore missing background script or injection failures
-})
 
 chrome.storage.local.get(
   ["overlayEnabled", "overlayText", "selectedFont", "bgColor", "textColor"],

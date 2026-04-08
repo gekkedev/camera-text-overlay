@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Camera Text Overlay
 // @namespace    https://github.com/gekkedev/camera-text-overlay
-// @version      2.0
+// @version      2.0.1
 // @description  Replaces the camera stream with specified text for others to see
 // @author       gekkedev
 // @updateURL    https://raw.githubusercontent.com/gekkedev/camera-text-overlay/main/camera-text-overlay.user.js
@@ -11,6 +11,8 @@
 // @grant        GM_setValue
 // @grant        GM_registerMenuCommand
 // @grant        GM_unregisterMenuCommand
+// @grant        unsafeWindow
+// @run-at       document-start
 // ==/UserScript==
 
 ;(function () {
@@ -36,11 +38,12 @@ class TextOverlayManager {
     this.selectedFont = options.selectedFont ?? defaults.selectedFont
     this.bgColor = options.bgColor ?? defaults.bgColor
     this.textColor = options.textColor ?? defaults.textColor
-    this.video = null
     this.toggle = null
+    this.mediaDevices = options.mediaDevices || navigator.mediaDevices
     this.onStateChange = options.onStateChange || (() => {})
     this.onFirstCameraRequest = options.onFirstCameraRequest || (() => {})
     this.hasCameraRequest = false
+    this.patchRetryTimer = null
   }
 
   applySettings(settings = {}) {
@@ -61,13 +64,131 @@ class TextOverlayManager {
     }
   }
 
-  initializeVideo() {
-    if (this.video) return
-    this.video = document.createElement("video")
-    this.video.style = "display:none"
-    this.video.setAttribute("playsinline", "")
-    this.video.setAttribute("autoplay", "")
-    document.body.appendChild(this.video)
+  getMountTarget() {
+    return document.body || document.documentElement || document.head || null
+  }
+
+  appendElement(element) {
+    if (element.isConnected) return
+
+    const mountTarget = this.getMountTarget()
+    if (mountTarget) {
+      mountTarget.appendChild(element)
+      return
+    }
+
+    document.addEventListener(
+      "DOMContentLoaded",
+      () => {
+        const readyMountTarget = this.getMountTarget()
+        if (readyMountTarget && !element.isConnected) {
+          readyMountTarget.appendChild(element)
+        }
+      },
+      { once: true }
+    )
+  }
+
+  getNativeGetUserMedia() {
+    const mediaDevices = this.mediaDevices || navigator.mediaDevices
+    if (!mediaDevices) return null
+
+    const getUserMedia = mediaDevices.oldGetUserMedia || mediaDevices.getUserMedia
+    return typeof getUserMedia === "function" ? getUserMedia.bind(mediaDevices) : null
+  }
+
+  scheduleGetUserMediaPatchRetry() {
+    if (this.patchRetryTimer != null) {
+      return
+    }
+
+    this.patchRetryTimer = window.setTimeout(() => {
+      this.patchRetryTimer = null
+      this.patchGetUserMedia()
+    }, 100)
+  }
+
+  getTrackSettings(track) {
+    if (!track || typeof track.getSettings !== "function") {
+      return {}
+    }
+    return track.getSettings() || {}
+  }
+
+  getVideoTrackSize(track) {
+    const settings = this.getTrackSettings(track)
+    return {
+      width: Number(settings.width) > 0 ? Number(settings.width) : 1280,
+      height: Number(settings.height) > 0 ? Number(settings.height) : 720,
+      frameRate: Number(settings.frameRate) > 0 ? Number(settings.frameRate) : 30
+    }
+  }
+
+  decorateOverlayTrack({ overlayTrack, sourceTrack, resizeCanvas, cleanup }) {
+    if (!overlayTrack || !sourceTrack) return
+
+    const nativeGetSettings =
+      typeof overlayTrack.getSettings === "function" ? overlayTrack.getSettings.bind(overlayTrack) : null
+    const nativeGetCapabilities =
+      typeof overlayTrack.getCapabilities === "function"
+        ? overlayTrack.getCapabilities.bind(overlayTrack)
+        : null
+    const nativeGetConstraints =
+      typeof overlayTrack.getConstraints === "function"
+        ? overlayTrack.getConstraints.bind(overlayTrack)
+        : null
+    const nativeApplyConstraints =
+      typeof overlayTrack.applyConstraints === "function"
+        ? overlayTrack.applyConstraints.bind(overlayTrack)
+        : null
+    const nativeStop = typeof overlayTrack.stop === "function" ? overlayTrack.stop.bind(overlayTrack) : null
+
+    overlayTrack.getSettings = () => ({
+      ...(nativeGetSettings ? nativeGetSettings() : {}),
+      ...this.getTrackSettings(sourceTrack)
+    })
+
+    if (typeof sourceTrack.getCapabilities === "function" || nativeGetCapabilities) {
+      overlayTrack.getCapabilities = () => {
+        if (typeof sourceTrack.getCapabilities === "function") {
+          return sourceTrack.getCapabilities() || {}
+        }
+        return nativeGetCapabilities ? nativeGetCapabilities() : {}
+      }
+    }
+
+    if (typeof sourceTrack.getConstraints === "function" || nativeGetConstraints) {
+      overlayTrack.getConstraints = () => {
+        if (typeof sourceTrack.getConstraints === "function") {
+          return sourceTrack.getConstraints() || {}
+        }
+        return nativeGetConstraints ? nativeGetConstraints() : {}
+      }
+    }
+
+    if (typeof sourceTrack.applyConstraints === "function" || nativeApplyConstraints) {
+      overlayTrack.applyConstraints = async constraints => {
+        if (typeof sourceTrack.applyConstraints === "function") {
+          await sourceTrack.applyConstraints(constraints)
+          resizeCanvas(this.getTrackSettings(sourceTrack))
+        }
+
+        if (nativeApplyConstraints) {
+          try {
+            await nativeApplyConstraints(constraints)
+          } catch (error) {
+            // Canvas tracks often ignore video-device constraints that the source track accepts.
+          }
+        }
+      }
+    }
+
+    overlayTrack.stop = () => {
+      cleanup()
+      if (nativeStop) {
+        nativeStop()
+      }
+    }
   }
 
   createToggleCheckbox({ hidden = true } = {}) {
@@ -78,48 +199,107 @@ class TextOverlayManager {
     this.toggle.style = hidden
       ? "position:fixed;left:0;top:0;width:50px;height:10px;z-index:9999999;display:none"
       : "position:fixed;left:0;top:0;width:50px;height:10px;z-index:9999999"
-    document.body.appendChild(this.toggle)
+    this.appendElement(this.toggle)
   }
 
   createTextOverlayMediaStream(oldStream) {
-    this.initializeVideo()
-    const camera = document.createElement("canvas")
+    const sourceTrack = oldStream.getVideoTracks()[0]
+    if (!sourceTrack) {
+      return oldStream
+    }
+
+    const sourceVideo = document.createElement("video")
     const comp = document.createElement("canvas")
 
-    this.video.srcObject = oldStream
+    sourceVideo.style.display = "none"
+    sourceVideo.muted = true
+    sourceVideo.setAttribute("playsinline", "")
+    sourceVideo.setAttribute("autoplay", "")
+    sourceVideo.srcObject = oldStream
+    this.appendElement(sourceVideo)
+    const playPromise = sourceVideo.play()
+    if (playPromise && typeof playPromise.catch === "function") {
+      playPromise.catch(() => {})
+    }
 
-    const oldStreamSettings = oldStream.getVideoTracks()[0].getSettings()
-    const w = oldStreamSettings.width
-    const h = oldStreamSettings.height
-    comp.width = w
-    comp.height = h
-    camera.width = w
-    camera.height = h
-
-    const cameraCtx = camera.getContext("2d")
+    let { width, height, frameRate } = this.getVideoTrackSize(sourceTrack)
+    comp.width = width
+    comp.height = height
     const compCtx = comp.getContext("2d")
+    let frameHandle = null
+    let isCleanedUp = false
 
-    const draw = () => {
-      compCtx.clearRect(0, 0, w, h)
-      cameraCtx.drawImage(this.video, 0, 0, w, h)
+    const resizeCanvas = settings => {
+      const nextWidth = Number(settings.width) > 0 ? Number(settings.width) : width
+      const nextHeight = Number(settings.height) > 0 ? Number(settings.height) : height
 
-      if (this.enabled && this.overlayText) {
-        compCtx.fillStyle = this.bgColor
-        compCtx.fillRect(0, 0, w, h)
-        compCtx.font = `50px "${this.selectedFont}", sans-serif`
-        compCtx.fillStyle = this.textColor
-        compCtx.textAlign = "center"
-        compCtx.textBaseline = "middle"
-        compCtx.fillText(this.overlayText, w / 2, h / 2)
-      } else {
-        compCtx.drawImage(this.video, 0, 0, w, h)
+      if (nextWidth !== width || nextHeight !== height) {
+        width = nextWidth
+        height = nextHeight
+        comp.width = width
+        comp.height = height
+      }
+    }
+
+    const cleanup = () => {
+      if (isCleanedUp) return
+      isCleanedUp = true
+
+      if (frameHandle != null) {
+        cancelAnimationFrame(frameHandle)
       }
 
-      requestAnimationFrame(draw)
+      if (sourceVideo.srcObject === oldStream) {
+        sourceVideo.srcObject = null
+      }
+      sourceVideo.remove()
+
+      oldStream.getVideoTracks().forEach(track => {
+        if (track.readyState !== "ended") {
+          track.stop()
+        }
+      })
+    }
+
+    const draw = () => {
+      if (isCleanedUp) return
+
+      if (sourceVideo.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+        compCtx.clearRect(0, 0, width, height)
+
+        if (this.enabled && this.overlayText) {
+          compCtx.fillStyle = this.bgColor
+          compCtx.fillRect(0, 0, width, height)
+          compCtx.font = `50px "${this.selectedFont}", sans-serif`
+          compCtx.fillStyle = this.textColor
+          compCtx.textAlign = "center"
+          compCtx.textBaseline = "middle"
+          compCtx.fillText(this.overlayText, width / 2, height / 2)
+        } else {
+          compCtx.drawImage(sourceVideo, 0, 0, width, height)
+        }
+      }
+
+      frameHandle = requestAnimationFrame(draw)
     }
 
     draw()
-    return comp.captureStream(30)
+    const overlayStream = comp.captureStream(frameRate)
+    const overlayTrack = overlayStream.getVideoTracks()[0]
+
+    this.decorateOverlayTrack({
+      overlayTrack,
+      sourceTrack,
+      resizeCanvas,
+      cleanup
+    })
+
+    sourceTrack.addEventListener("ended", cleanup, { once: true })
+    if (overlayTrack) {
+      overlayTrack.addEventListener("ended", cleanup, { once: true })
+    }
+
+    return overlayStream
   }
 
   createPreviewModal() {
@@ -367,6 +547,18 @@ class TextOverlayManager {
 
   patchGetUserMedia() {
     const manager = this
+    const mediaDevices = navigator.mediaDevices || this.mediaDevices
+    this.mediaDevices = mediaDevices || this.mediaDevices
+
+    if (!mediaDevices || typeof mediaDevices.getUserMedia !== "function") {
+      this.scheduleGetUserMediaPatchRetry()
+      return false
+    }
+
+    if (this.patchRetryTimer != null) {
+      clearTimeout(this.patchRetryTimer)
+      this.patchRetryTimer = null
+    }
 
     async function newGetUserMedia(constraints) {
       if (constraints && constraints.video) {
@@ -377,7 +569,7 @@ class TextOverlayManager {
       }
 
       if (constraints && constraints.video) {
-        const oldStream = await navigator.mediaDevices.oldGetUserMedia(constraints)
+        const oldStream = await mediaDevices.oldGetUserMedia.call(mediaDevices, constraints)
         const overlayStream = manager.createTextOverlayMediaStream(oldStream)
 
         if (constraints.audio) {
@@ -390,42 +582,63 @@ class TextOverlayManager {
         return overlayStream
       }
 
-      return navigator.mediaDevices.oldGetUserMedia(constraints)
+      return mediaDevices.oldGetUserMedia.call(mediaDevices, constraints)
     }
 
-    if (!navigator.mediaDevices.oldGetUserMedia) {
-      navigator.mediaDevices.oldGetUserMedia = navigator.mediaDevices.getUserMedia
-      navigator.mediaDevices.getUserMedia = newGetUserMedia
+    if (!mediaDevices.oldGetUserMedia) {
+      mediaDevices.oldGetUserMedia = mediaDevices.getUserMedia
+      mediaDevices.getUserMedia = newGetUserMedia
     }
+
+    return true
   }
 
   initializeCore({ hideToggle = true } = {}) {
-    this.initializeVideo()
     this.createToggleCheckbox({ hidden: hideToggle })
     this.patchGetUserMedia()
   }
 }
 
 function injectGoogleFonts() {
+  if (document.querySelector('link[data-camera-text-overlay-fonts="true"]')) {
+    return
+  }
+
   const link = document.createElement("link")
   link.href = "https://fonts.googleapis.com/css2?family=Titillium+Web:wght@400;600&display=swap"
   link.rel = "stylesheet"
-  document.head.appendChild(link)
+  link.dataset.cameraTextOverlayFonts = "true"
+
+  const mountTarget = document.head || document.documentElement
+  if (mountTarget) {
+    mountTarget.appendChild(link)
+    return
+  }
+
+  document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+      const readyMountTarget = document.head || document.documentElement
+      if (readyMountTarget && !link.isConnected) {
+        readyMountTarget.appendChild(link)
+      }
+    },
+    { once: true }
+  )
 }
 
 
+  const pageWindow = typeof unsafeWindow !== "undefined" ? unsafeWindow : window
+
   class UserscriptOverlayManager extends TextOverlayManager {
     constructor() {
-      super()
+      super({
+        mediaDevices: pageWindow?.navigator?.mediaDevices || navigator.mediaDevices
+      })
       this.menuCommandIds = []
       this.canRefreshMenuCommands = typeof GM_unregisterMenuCommand === "function"
       this.menuCommandsRegistered = false
-      this.onFirstCameraRequest = () => {
-        injectGoogleFonts()
-        if (!this.menuCommandsRegistered) {
-          this.updateMenuCommands()
-        }
-      }
+      this.onFirstCameraRequest = () => injectGoogleFonts()
     }
 
     loadPreferences() {
@@ -489,6 +702,7 @@ function injectGoogleFonts() {
         this.bgColor = modalData.bgColorInput.value
         this.textColor = modalData.textColorInput.value
         this.savePreferences()
+        this.setEnabled(this.enabled)
         document.body.removeChild(modalData.overlay)
       }
 
@@ -505,18 +719,23 @@ function injectGoogleFonts() {
         GM_setValue("textColor", DEFAULT_OVERLAY_SETTINGS.textColor)
         GM_setValue("overlayEnabled", DEFAULT_OVERLAY_SETTINGS.enabled)
         this.loadPreferences()
-        this.updateMenuCommands()
+        this.setEnabled(this.enabled)
         alert("Settings reset to defaults")
       }
     }
 
     toggleFeature() {
+      const nativeGetUserMedia = this.getNativeGetUserMedia()
+      if (!nativeGetUserMedia) {
+        alert("Camera access is not available on this page")
+        return
+      }
+
       if (this.enabled) {
         const previewData = this.createPreviewModal()
         document.body.appendChild(previewData.overlay)
 
-        navigator.mediaDevices
-          .oldGetUserMedia({ video: true })
+        nativeGetUserMedia({ video: true })
           .then(stream => {
             previewData.previewVideo.srcObject = stream
 
@@ -566,6 +785,7 @@ function injectGoogleFonts() {
 
     initialize() {
       this.loadPreferences()
+      this.updateMenuCommands()
       this.patchGetUserMedia()
     }
   }
