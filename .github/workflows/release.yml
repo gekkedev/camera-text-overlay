@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*.*.*'  # Triggers on tags like v1.0.0, v1.2.3, etc.
+      - "v*.*.*" # Triggers on tags like v1.0.0, v1.2.3, etc.
 
 permissions:
   contents: write
@@ -11,89 +11,89 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup pnpm
-      uses: pnpm/action-setup@v4
-      with:
-        version: 9
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'pnpm'
-        
-    - name: Install dependencies
-      run: pnpm install --frozen-lockfile
-      
-    - name: Build project
-      run: pnpm run build
-      
-    - name: Get version from tag
-      id: get_version
-      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-      
-    - name: Create extension ZIP
-      run: |
-        cd dist/extension
-        zip -r ../../camera-text-overlay-extension-v${{ steps.get_version.outputs.VERSION }}.zip .
-        cd ../..
-        
-    - name: Generate checksums
-      run: |
-        sha256sum camera-text-overlay.user.js > checksums.txt
-        sha256sum camera-text-overlay-extension-v${{ steps.get_version.outputs.VERSION }}.zip >> checksums.txt
-        cat checksums.txt
-        
-    - name: Create release notes
-      id: release_notes
-      run: |
-        cat > release_notes.md << 'EOF'
-        ## 🎥 Camera Text Overlay v${{ steps.get_version.outputs.VERSION }}
-        
-        Replace your camera stream with a customizable text for video calls.
-        
-        ### 📦 Installation
-        
-        - **Userscript**: Install [Tampermonkey](https://www.tampermonkey.net/), then click `camera-text-overlay.user.js` below
-        - **Chrome Extension**: Download and extract the `.zip`, then load unpacked in `chrome://extensions/`
-        
-        See [Installation Guide](https://github.com/${{ github.repository }}/blob/main/INSTALLATION.md) for detailed instructions.
-        
-        ### 🔐 Checksums (SHA256)
-        ```
-        $(cat checksums.txt)
-        ```
-        EOF
-        cat release_notes.md
-        
-    - name: Create GitHub Release
-      uses: softprops/action-gh-release@v1
-      with:
-        body_path: release_notes.md
-        files: |
-          camera-text-overlay.user.js
-          camera-text-overlay-extension-v${{ steps.get_version.outputs.VERSION }}.zip
-          checksums.txt
-        draft: false
-        prerelease: false
-        generate_release_notes: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        
-    - name: Create release summary
-      run: |
-        echo "## 🚀 Release v${{ steps.get_version.outputs.VERSION }} Published!" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 📦 Artifacts" >> $GITHUB_STEP_SUMMARY
-        echo "- 📜 Userscript: $(wc -c < camera-text-overlay.user.js) bytes" >> $GITHUB_STEP_SUMMARY
-        echo "- 🗜️ Extension ZIP: $(wc -c < camera-text-overlay-extension-v${{ steps.get_version.outputs.VERSION }}.zip) bytes" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 🔗 Links" >> $GITHUB_STEP_SUMMARY
-        echo "- [View Release](https://github.com/${{ github.repository }}/releases/tag/v${{ steps.get_version.outputs.VERSION }})" >> $GITHUB_STEP_SUMMARY
-        echo "- [Download Userscript](https://github.com/${{ github.repository }}/releases/download/v${{ steps.get_version.outputs.VERSION }}/camera-text-overlay.user.js)" >> $GITHUB_STEP_SUMMARY
-        echo "- [Download Extension](https://github.com/${{ github.repository }}/releases/download/v${{ steps.get_version.outputs.VERSION }}/camera-text-overlay-extension-v${{ steps.get_version.outputs.VERSION }}.zip)" >> $GITHUB_STEP_SUMMARY
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build project
+        run: pnpm run build
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Create extension ZIP
+        run: |
+          cd dist/extension
+          zip -r ../../camera-text-overlay-extension-v${{ steps.get_version.outputs.VERSION }}.zip .
+          cd ../..
+
+      - name: Generate checksums
+        run: |
+          sha256sum camera-text-overlay.user.js > checksums.txt
+          sha256sum camera-text-overlay-extension-v${{ steps.get_version.outputs.VERSION }}.zip >> checksums.txt
+          cat checksums.txt
+
+      - name: Create release notes
+        id: release_notes
+        run: |
+          cat > release_notes.md << 'EOF'
+          ## 🎥 Camera Text Overlay v${{ steps.get_version.outputs.VERSION }}
+
+          Replace your camera stream with a customizable text for video calls.
+
+          ### 📦 Installation
+
+          - **Userscript**: Install [Tampermonkey](https://www.tampermonkey.net/), then click `camera-text-overlay.user.js` below
+          - **Chrome Extension**: Download and extract the `.zip`, then load unpacked in `chrome://extensions/`
+
+          See [Installation Guide](https://github.com/${{ github.repository }}/blob/main/INSTALLATION.md) for detailed instructions.
+
+          ### 🔐 Checksums (SHA256)
+          ```
+          $(cat checksums.txt)
+          ```
+          EOF
+          cat release_notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: release_notes.md
+          files: |
+            camera-text-overlay.user.js
+            camera-text-overlay-extension-v${{ steps.get_version.outputs.VERSION }}.zip
+            checksums.txt
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create release summary
+        run: |
+          echo "## 🚀 Release v${{ steps.get_version.outputs.VERSION }} Published!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "- 📜 Userscript: $(wc -c < camera-text-overlay.user.js) bytes" >> $GITHUB_STEP_SUMMARY
+          echo "- 🗜️ Extension ZIP: $(wc -c < camera-text-overlay-extension-v${{ steps.get_version.outputs.VERSION }}.zip) bytes" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔗 Links" >> $GITHUB_STEP_SUMMARY
+          echo "- [View Release](https://github.com/${{ github.repository }}/releases/tag/v${{ steps.get_version.outputs.VERSION }})" >> $GITHUB_STEP_SUMMARY
+          echo "- [Download Userscript](https://github.com/${{ github.repository }}/releases/download/v${{ steps.get_version.outputs.VERSION }}/camera-text-overlay.user.js)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Download Extension](https://github.com/${{ github.repository }}/releases/download/v${{ steps.get_version.outputs.VERSION }}/camera-text-overlay-extension-v${{ steps.get_version.outputs.VERSION }}.zip)" >> $GITHUB_STEP_SUMMARY
