@@ -7,21 +7,25 @@ Replace your camera stream with a customizable text for video calls. Great for "
 ## Features
 
 ### Two Installation Methods:
+
 **Userscript:** Works with any userscript manager (TamperMonkey, GreaseMonkey, ViolentMonkey, etc.)  
 **Chrome Extension:** Native installation for Chrome/Chromium browsers
 
 ### Customizable attributes
+
 - text content
 - text color
 - background color
 - font selection (6 included fonts)
 
 ### Controls
+
 **Userscript:** Access via userscript manager menu or on-page button
 **Extension:** Click the extension icon in your toolbar
 
 ### Privacy
-- no network requests (except for *Google Fonts*)
+
+- no network requests (except for _Google Fonts_)
 - neither tracking nor analytics
 - settings stored locally
 
@@ -33,11 +37,11 @@ Replace your camera stream with a customizable text for video calls. Great for "
 
 Choose one of these browser extensions:
 
-| Manager | Chrome | Firefox | Edge | Opera |
-|---------|--------|---------|------|-------|
-| [**TamperMonkey**](https://www.tampermonkey.net/) | ✅ | ✅ | ✅ | ✅ |
-| [**Greasemonkey**](https://www.greasespot.net/) | ✅ | ✅ | ✅ | ✅ |
-| [**ViolentMonkey**](https://violentmonkey.github.io/) | ✅ | ✅ | ✅ | ✅ |
+| Manager                                               | Chrome | Firefox | Edge | Opera |
+| ----------------------------------------------------- | ------ | ------- | ---- | ----- |
+| [**TamperMonkey**](https://www.tampermonkey.net/)     | ✅     | ✅      | ✅   | ✅    |
+| [**Greasemonkey**](https://www.greasespot.net/)       | ✅     | ✅      | ✅   | ✅    |
+| [**ViolentMonkey**](https://violentmonkey.github.io/) | ✅     | ✅      | ✅   | ✅    |
 
 #### Step 2: Install the Userscript
 
@@ -78,6 +82,7 @@ The userscript works through your userscript manager's menu:
    - Your camera feed returns to normal
 
 **Reset settings:**
+
 - Menu → "🔄 Reset Settings" to restore defaults
 
 **Note:** Different userscript managers have different menu styles, but all provide access to the same commands.
@@ -87,12 +92,14 @@ The userscript works through your userscript manager's menu:
 #### Step 1: Download the Extension
 
 Option A: **Download from source**
+
 1. Clone or download this repository
 2. Navigate to the root folder
 3. Run `npm install && npm run build`
 4. The extension will be in the `dist/extension` folder
 
 Option B: **Download the pre-built extension**
+
 - Each release includes `camera-text-overlay-extension.zip`
 - Extract it somewhere safe (e.g., `~/Extensions/camera-text-overlay/`)
 
@@ -107,6 +114,7 @@ Option B: **Download the pre-built extension**
 #### Using the Extension
 
 **First time setup:**
+
 1. Click the **Camera Text Overlay icon** in your toolbar
 2. A settings popup appears
 3. Enter your overlay text (e.g., "be right back 😴")
@@ -114,6 +122,7 @@ Option B: **Download the pre-built extension**
 5. Click **"Enable Overlay"**
 
 **On a video call:**
+
 - Start your camera as usual in Google Meet, Zoom, Teams, etc.
 - Others will see your overlay text instead of your real camera
 - Click the icon anytime to toggle overlay on/off
@@ -138,6 +147,7 @@ pnpm run build
 ```
 
 **Output:**
+
 - **Userscript**: `camera-text-overlay.user.js` (root directory)
 - **Extension**: `dist/extension/` folder
 
@@ -189,6 +199,7 @@ Found a bug or have a feature idea?
 ### Future Enhancements
 
 Potential improvements:
+
 - [ ] more fonts
 - [ ] custom fonts via file upload
 - [ ] preset overlays (clock, message templates)
@@ -216,7 +227,8 @@ A: Mobile browsers don't support userscripts/extensions in the same way. This is
 A: Currently limited to 6 built-in fonts. Custom fonts are a potential future feature.
 
 **Q: What if I want to go back to showing my real camera?**  
-A: 
+A:
+
 - **Userscript**: Click userscript manager icon → "Camera Text Overlay" → "🔴 Disable Text Overlay"
 - **Extension**: Click the extension icon and click "Disable Overlay"
 

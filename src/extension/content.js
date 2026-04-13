@@ -18,10 +18,7 @@ function normalizeSettings(settings = {}) {
 
 function sendSettingsToPage(settings) {
   lastSettings = normalizeSettings(settings)
-  window.postMessage(
-    { source: MESSAGE_SOURCE, type: "SETTINGS_UPDATED", settings: lastSettings },
-    "*"
-  )
+  window.postMessage({ source: MESSAGE_SOURCE, type: "SETTINGS_UPDATED", settings: lastSettings }, "*")
 }
 
 chrome.storage.local.get(
