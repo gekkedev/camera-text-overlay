@@ -6,6 +6,8 @@ const selectedFontSelect = document.getElementById("selectedFont")
 const bgColorInput = document.getElementById("bgColor")
 const textColorInput = document.getElementById("textColor")
 const previewBeforeToggleInput = document.getElementById("previewBeforeToggle")
+const settingsToggleBtn = document.getElementById("settingsToggleBtn")
+const settingsPanel = document.getElementById("settingsPanel")
 const toggleBtn = document.getElementById("toggleBtn")
 const saveBtn = document.getElementById("saveBtn")
 const statusDiv = document.getElementById("status")
@@ -227,6 +229,11 @@ function updateUI() {
   }
 }
 
+function setSettingsMenuOpen(isOpen) {
+  settingsPanel.hidden = !isOpen
+  settingsToggleBtn.setAttribute("aria-expanded", String(isOpen))
+}
+
 function saveSettings() {
   chrome.storage.local.set({
     overlayEnabled: currentState.enabled,
@@ -293,6 +300,15 @@ previewBeforeToggleInput.addEventListener("change", () => {
   renderPreview()
 })
 
+settingsToggleBtn.addEventListener("click", event => {
+  event.stopPropagation()
+  setSettingsMenuOpen(settingsPanel.hidden)
+})
+
+settingsPanel.addEventListener("click", event => {
+  event.stopPropagation()
+})
+
 // Save Settings button - saves the form configuration
 saveBtn.addEventListener("click", () => {
   syncStateFromInputs()
@@ -318,6 +334,23 @@ loadSettings()
 
 window.addEventListener("unload", () => {
   stopPreviewStream()
+})
+
+document.addEventListener("click", event => {
+  if (settingsPanel.hidden) {
+    return
+  }
+
+  if (event.target !== settingsToggleBtn && !settingsPanel.contains(event.target)) {
+    setSettingsMenuOpen(false)
+  }
+})
+
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape" && !settingsPanel.hidden) {
+    setSettingsMenuOpen(false)
+    settingsToggleBtn.focus()
+  }
 })
 
 // Listen for storage changes from other windows/tabs

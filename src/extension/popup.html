@@ -28,10 +28,66 @@
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
       }
 
+      .header-row {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+
       h1 {
         font-size: 18px;
-        margin-bottom: 20px;
+        margin-bottom: 0;
         color: #333;
+      }
+
+      .settings-menu {
+        position: relative;
+        flex: 0 0 auto;
+      }
+
+      .settings-trigger {
+        flex: 0 0 auto;
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 999px;
+        background: #fff;
+        color: #444;
+        font-size: 13px;
+        font-weight: 600;
+      }
+
+      .settings-trigger:hover {
+        background: #f8f8f8;
+      }
+
+      .settings-trigger:focus {
+        outline: none;
+        border-color: #6200ea;
+        box-shadow: 0 0 0 2px rgba(98, 0, 234, 0.1);
+      }
+
+      .settings-panel {
+        position: absolute;
+        top: calc(100% + 8px);
+        right: 0;
+        z-index: 10;
+        width: 280px;
+        padding: 14px;
+        border: 1px solid #e2e2e2;
+        border-radius: 8px;
+        background: #fff;
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
+      }
+
+      .settings-title {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #666;
+        margin-bottom: 10px;
       }
 
       .form-group {
@@ -88,11 +144,13 @@
         width: 16px;
         height: 16px;
         margin: 0;
+        margin-top: 2px;
         flex: 0 0 auto;
       }
 
       .checkbox-field span {
-        font-size: 14px;
+        font-size: 13px;
+        line-height: 1.4;
         color: #555;
         font-weight: 500;
       }
@@ -200,7 +258,28 @@
   </head>
   <body>
     <div class="container">
-      <h1>🎥 Camera Text Overlay</h1>
+      <div class="header-row">
+        <h1>🎥 Camera Text Overlay</h1>
+        <div class="settings-menu">
+          <button
+            id="settingsToggleBtn"
+            class="settings-trigger"
+            type="button"
+            aria-expanded="false"
+            aria-controls="settingsPanel"
+          >
+            Settings
+          </button>
+          <div id="settingsPanel" class="settings-panel" hidden>
+            <div class="settings-title">Preview</div>
+            <label class="checkbox-field" for="previewBeforeToggle">
+              <input type="checkbox" id="previewBeforeToggle" />
+              <span>Preview before toggling on or off</span>
+            </label>
+            <div class="info-text">Show the bare camera before disabling or an overlay preview before enabling.</div>
+          </div>
+        </div>
+      </div>
 
       <div id="status" class="status disabled">Overlay Disabled</div>
 
@@ -230,14 +309,6 @@
       <div class="form-group">
         <label for="textColor">Text Color</label>
         <input type="color" id="textColor" />
-      </div>
-
-      <div class="form-group">
-        <label class="checkbox-field" for="previewBeforeToggle">
-          <input type="checkbox" id="previewBeforeToggle" />
-          <span>Preview before toggling on or off</span>
-        </label>
-        <div class="info-text">Show the bare camera before disabling or an overlay preview before enabling.</div>
       </div>
 
       <div class="button-group">
