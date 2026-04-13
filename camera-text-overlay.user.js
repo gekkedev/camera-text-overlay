@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Camera Text Overlay
 // @namespace    https://github.com/gekkedev/camera-text-overlay
-// @version      2.0.1
+// @version      2.1.0
 // @description  Replaces the camera stream with specified text for others to see
 // @author       gekkedev
 // @updateURL    https://raw.githubusercontent.com/gekkedev/camera-text-overlay/main/camera-text-overlay.user.js
@@ -27,7 +27,8 @@ const DEFAULT_OVERLAY_SETTINGS = {
   overlayText: "be right back 😴",
   selectedFont: "Titillium Web",
   bgColor: "#101010",
-  textColor: "#ffd744"
+  textColor: "#ffd744",
+  previewBeforeToggle: false
 }
 
 class TextOverlayManager {
@@ -38,6 +39,7 @@ class TextOverlayManager {
     this.selectedFont = options.selectedFont ?? defaults.selectedFont
     this.bgColor = options.bgColor ?? defaults.bgColor
     this.textColor = options.textColor ?? defaults.textColor
+    this.previewBeforeToggle = options.previewBeforeToggle ?? defaults.previewBeforeToggle
     this.toggle = null
     this.mediaDevices = options.mediaDevices || navigator.mediaDevices
     this.onStateChange = options.onStateChange || (() => {})
@@ -62,6 +64,33 @@ class TextOverlayManager {
     if (typeof settings.textColor === "string") {
       this.textColor = settings.textColor
     }
+    if (typeof settings.previewBeforeToggle === "boolean") {
+      this.previewBeforeToggle = settings.previewBeforeToggle
+    }
+  }
+
+  getSettingsSnapshot(overrides = {}) {
+    return {
+      enabled: typeof overrides.enabled === "boolean" ? overrides.enabled : this.enabled,
+      overlayText: typeof overrides.overlayText === "string" ? overrides.overlayText : this.overlayText,
+      selectedFont: typeof overrides.selectedFont === "string" ? overrides.selectedFont : this.selectedFont,
+      bgColor: typeof overrides.bgColor === "string" ? overrides.bgColor : this.bgColor,
+      textColor: typeof overrides.textColor === "string" ? overrides.textColor : this.textColor,
+      previewBeforeToggle:
+        typeof overrides.previewBeforeToggle === "boolean" ? overrides.previewBeforeToggle : this.previewBeforeToggle
+    }
+  }
+
+  stopStream(stream) {
+    if (!stream || typeof stream.getTracks !== "function") {
+      return
+    }
+
+    stream.getTracks().forEach(track => {
+      if (track.readyState !== "ended") {
+        track.stop()
+      }
+    })
   }
 
   getMountTarget() {
@@ -130,17 +159,11 @@ class TextOverlayManager {
     const nativeGetSettings =
       typeof overlayTrack.getSettings === "function" ? overlayTrack.getSettings.bind(overlayTrack) : null
     const nativeGetCapabilities =
-      typeof overlayTrack.getCapabilities === "function"
-        ? overlayTrack.getCapabilities.bind(overlayTrack)
-        : null
+      typeof overlayTrack.getCapabilities === "function" ? overlayTrack.getCapabilities.bind(overlayTrack) : null
     const nativeGetConstraints =
-      typeof overlayTrack.getConstraints === "function"
-        ? overlayTrack.getConstraints.bind(overlayTrack)
-        : null
+      typeof overlayTrack.getConstraints === "function" ? overlayTrack.getConstraints.bind(overlayTrack) : null
     const nativeApplyConstraints =
-      typeof overlayTrack.applyConstraints === "function"
-        ? overlayTrack.applyConstraints.bind(overlayTrack)
-        : null
+      typeof overlayTrack.applyConstraints === "function" ? overlayTrack.applyConstraints.bind(overlayTrack) : null
     const nativeStop = typeof overlayTrack.stop === "function" ? overlayTrack.stop.bind(overlayTrack) : null
 
     overlayTrack.getSettings = () => ({
@@ -302,7 +325,7 @@ class TextOverlayManager {
     return overlayStream
   }
 
-  createPreviewModal() {
+  createPreviewModal({ title = "Preview", description = "", confirmLabel = "Confirm", confirmColor = "#6200ea" } = {}) {
     const modalOverlay = document.createElement("div")
     modalOverlay.style.position = "fixed"
     modalOverlay.style.top = "0"
@@ -324,12 +347,21 @@ class TextOverlayManager {
     modal.style.width = "90%"
     modal.style.fontFamily = "system-ui, -apple-system, sans-serif"
 
-    const title = document.createElement("h2")
-    title.textContent = "Take one last look - are you camera-ready?"
-    title.style.margin = "0 0 20px 0"
-    title.style.fontSize = "20px"
-    title.style.color = "#333"
-    modal.appendChild(title)
+    const titleElement = document.createElement("h2")
+    titleElement.textContent = title
+    titleElement.style.margin = "0 0 20px 0"
+    titleElement.style.fontSize = "20px"
+    titleElement.style.color = "#333"
+    modal.appendChild(titleElement)
+
+    if (description) {
+      const descriptionText = document.createElement("p")
+      descriptionText.textContent = description
+      descriptionText.style.margin = "0 0 15px 0"
+      descriptionText.style.fontSize = "14px"
+      descriptionText.style.color = "#666"
+      modal.appendChild(descriptionText)
+    }
 
     const previewVideo = document.createElement("video")
     previewVideo.style.width = "100%"
@@ -340,11 +372,15 @@ class TextOverlayManager {
     previewVideo.setAttribute("playsinline", "")
     modal.appendChild(previewVideo)
 
+    const buttonContainer = document.createElement("div")
+    buttonContainer.style.display = "flex"
+    buttonContainer.style.gap = "10px"
+
     const confirmBtn = document.createElement("button")
-    confirmBtn.textContent = "Yes, Disable Overlay"
-    confirmBtn.style.width = "100%"
+    confirmBtn.textContent = confirmLabel
+    confirmBtn.style.flex = "1"
     confirmBtn.style.padding = "10px"
-    confirmBtn.style.backgroundColor = "#d32f2f"
+    confirmBtn.style.backgroundColor = confirmColor
     confirmBtn.style.color = "white"
     confirmBtn.style.border = "none"
     confirmBtn.style.borderRadius = "4px"
@@ -352,16 +388,36 @@ class TextOverlayManager {
     confirmBtn.style.fontWeight = "600"
     confirmBtn.style.cursor = "pointer"
     confirmBtn.style.transition = "background-color 0.2s"
-    confirmBtn.onmouseover = () => (confirmBtn.style.backgroundColor = "#f44336")
-    confirmBtn.onmouseout = () => (confirmBtn.style.backgroundColor = "#d32f2f")
-    modal.appendChild(confirmBtn)
+    const confirmHoverColor = confirmColor === "#d32f2f" ? "#f44336" : "#7c3aed"
+    confirmBtn.onmouseover = () => (confirmBtn.style.backgroundColor = confirmHoverColor)
+    confirmBtn.onmouseout = () => (confirmBtn.style.backgroundColor = confirmColor)
+
+    const cancelBtn = document.createElement("button")
+    cancelBtn.textContent = "Cancel"
+    cancelBtn.style.flex = "1"
+    cancelBtn.style.padding = "10px"
+    cancelBtn.style.backgroundColor = "#999"
+    cancelBtn.style.color = "white"
+    cancelBtn.style.border = "none"
+    cancelBtn.style.borderRadius = "4px"
+    cancelBtn.style.fontSize = "14px"
+    cancelBtn.style.fontWeight = "600"
+    cancelBtn.style.cursor = "pointer"
+    cancelBtn.style.transition = "background-color 0.2s"
+    cancelBtn.onmouseover = () => (cancelBtn.style.backgroundColor = "#aaa")
+    cancelBtn.onmouseout = () => (cancelBtn.style.backgroundColor = "#999")
+
+    buttonContainer.appendChild(confirmBtn)
+    buttonContainer.appendChild(cancelBtn)
+    modal.appendChild(buttonContainer)
 
     modalOverlay.appendChild(modal)
 
     return {
       overlay: modalOverlay,
       previewVideo,
-      confirmBtn
+      confirmBtn,
+      cancelBtn
     }
   }
 
@@ -485,6 +541,28 @@ class TextOverlayManager {
     textColorInput.style.cursor = "pointer"
     modal.appendChild(textColorInput)
 
+    const previewToggleLabel = document.createElement("label")
+    previewToggleLabel.style.display = "flex"
+    previewToggleLabel.style.alignItems = "center"
+    previewToggleLabel.style.gap = "10px"
+    previewToggleLabel.style.marginBottom = "15px"
+    previewToggleLabel.style.cursor = "pointer"
+
+    const previewToggleInput = document.createElement("input")
+    previewToggleInput.type = "checkbox"
+    previewToggleInput.checked = this.previewBeforeToggle
+    previewToggleInput.style.margin = "0"
+
+    const previewToggleText = document.createElement("span")
+    previewToggleText.textContent = "Preview before toggling on or off"
+    previewToggleText.style.fontSize = "14px"
+    previewToggleText.style.fontWeight = "500"
+    previewToggleText.style.color = "#555"
+
+    previewToggleLabel.appendChild(previewToggleInput)
+    previewToggleLabel.appendChild(previewToggleText)
+    modal.appendChild(previewToggleLabel)
+
     const buttonContainer = document.createElement("div")
     buttonContainer.style.display = "flex"
     buttonContainer.style.gap = "10px"
@@ -532,9 +610,117 @@ class TextOverlayManager {
       fontSelect,
       bgColorInput,
       textColorInput,
+      previewToggleInput,
       enableBtn,
       cancelBtn
     }
+  }
+
+  previewToggleState({ targetEnabled, settings = {} } = {}) {
+    const nativeGetUserMedia = this.getNativeGetUserMedia()
+    if (!nativeGetUserMedia) {
+      return Promise.reject(new Error("Camera access is not available on this page"))
+    }
+
+    const previewSettings = this.getSettingsSnapshot({
+      ...settings,
+      enabled: targetEnabled
+    })
+
+    if (targetEnabled && !previewSettings.overlayText.trim()) {
+      return Promise.reject(new Error("Please enter some text first"))
+    }
+
+    if (targetEnabled) {
+      injectGoogleFonts()
+    }
+
+    const previewData = this.createPreviewModal({
+      title: targetEnabled
+        ? "Preview the overlay before enabling it"
+        : "Preview your camera before disabling the overlay",
+      description: targetEnabled
+        ? "This preview shows the overlay stream other people will see."
+        : "This preview shows your bare camera stream without the overlay.",
+      confirmLabel: targetEnabled ? "Enable Overlay" : "Disable Overlay",
+      confirmColor: targetEnabled ? "#6200ea" : "#d32f2f"
+    })
+
+    this.appendElement(previewData.overlay)
+
+    return new Promise((resolve, reject) => {
+      let settled = false
+      let cameraStream = null
+      let previewStream = null
+
+      const cleanup = () => {
+        if (previewData.previewVideo.srcObject) {
+          previewData.previewVideo.srcObject = null
+        }
+
+        if (previewStream && previewStream !== cameraStream) {
+          this.stopStream(previewStream)
+        } else {
+          this.stopStream(cameraStream)
+        }
+
+        previewData.overlay.remove()
+      }
+
+      const finish = confirmed => {
+        if (settled) {
+          return
+        }
+        settled = true
+        cleanup()
+        resolve(confirmed)
+      }
+
+      const fail = error => {
+        if (settled) {
+          return
+        }
+        settled = true
+        cleanup()
+        reject(error)
+      }
+
+      previewData.confirmBtn.onclick = () => finish(true)
+      previewData.cancelBtn.onclick = () => finish(false)
+      previewData.overlay.addEventListener("click", event => {
+        if (event.target === previewData.overlay) {
+          finish(false)
+        }
+      })
+
+      nativeGetUserMedia({ video: true })
+        .then(stream => {
+          cameraStream = stream
+          if (targetEnabled) {
+            const previewManager = new TextOverlayManager({
+              ...previewSettings,
+              mediaDevices: this.mediaDevices
+            })
+            previewStream = previewManager.createTextOverlayMediaStream(stream)
+          } else {
+            previewStream = stream
+          }
+
+          if (settled) {
+            cleanup()
+            return
+          }
+
+          previewData.previewVideo.srcObject = previewStream
+          const playPromise = previewData.previewVideo.play()
+          if (playPromise && typeof playPromise.catch === "function") {
+            playPromise.catch(() => {})
+          }
+        })
+        .catch(error => {
+          fail(error)
+        })
+    })
   }
 
   setEnabled(enabled) {
@@ -647,6 +833,7 @@ function injectGoogleFonts() {
       this.bgColor = GM_getValue("bgColor", DEFAULT_OVERLAY_SETTINGS.bgColor)
       this.textColor = GM_getValue("textColor", DEFAULT_OVERLAY_SETTINGS.textColor)
       this.enabled = GM_getValue("overlayEnabled", DEFAULT_OVERLAY_SETTINGS.enabled)
+      this.previewBeforeToggle = GM_getValue("previewBeforeToggle", DEFAULT_OVERLAY_SETTINGS.previewBeforeToggle)
     }
 
     savePreferences() {
@@ -655,6 +842,7 @@ function injectGoogleFonts() {
       GM_setValue("bgColor", this.bgColor)
       GM_setValue("textColor", this.textColor)
       GM_setValue("overlayEnabled", this.enabled)
+      GM_setValue("previewBeforeToggle", this.previewBeforeToggle)
     }
 
     updateMenuCommands() {
@@ -685,7 +873,7 @@ function injectGoogleFonts() {
       } else {
         register("🟢 Enable Text Overlay", () => this.toggleFeature())
       }
-      
+
       register("⚙️ Configure Settings", () => this.showSettingsModal())
       register("🔄 Reset Settings", () => this.resetSettings())
 
@@ -701,7 +889,7 @@ function injectGoogleFonts() {
         this.selectedFont = modalData.fontSelect.value
         this.bgColor = modalData.bgColorInput.value
         this.textColor = modalData.textColorInput.value
-        this.savePreferences()
+        this.previewBeforeToggle = modalData.previewToggleInput.checked
         this.setEnabled(this.enabled)
         document.body.removeChild(modalData.overlay)
       }
@@ -718,6 +906,7 @@ function injectGoogleFonts() {
         GM_setValue("bgColor", DEFAULT_OVERLAY_SETTINGS.bgColor)
         GM_setValue("textColor", DEFAULT_OVERLAY_SETTINGS.textColor)
         GM_setValue("overlayEnabled", DEFAULT_OVERLAY_SETTINGS.enabled)
+        GM_setValue("previewBeforeToggle", DEFAULT_OVERLAY_SETTINGS.previewBeforeToggle)
         this.loadPreferences()
         this.setEnabled(this.enabled)
         alert("Settings reset to defaults")
@@ -725,29 +914,21 @@ function injectGoogleFonts() {
     }
 
     toggleFeature() {
-      const nativeGetUserMedia = this.getNativeGetUserMedia()
-      if (!nativeGetUserMedia) {
-        alert("Camera access is not available on this page")
-        return
-      }
-
       if (this.enabled) {
-        const previewData = this.createPreviewModal()
-        document.body.appendChild(previewData.overlay)
+        if (!this.previewBeforeToggle) {
+          this.setEnabled(false)
+          return
+        }
 
-        nativeGetUserMedia({ video: true })
-          .then(stream => {
-            previewData.previewVideo.srcObject = stream
-
-            previewData.confirmBtn.onclick = () => {
-              stream.getTracks().forEach(track => track.stop())
+        this.previewToggleState({ targetEnabled: false })
+          .then(confirmed => {
+            if (confirmed) {
               this.setEnabled(false)
-              previewData.overlay.remove()
             }
           })
-          .catch(e => {
-            console.error("Error accessing camera for preview:", e)
-            previewData.overlay.remove()
+          .catch(error => {
+            console.error("Error accessing camera for preview:", error)
+            alert(error.message || "Could not open the preview")
           })
       } else {
         const modalData = this.createSettingsModal(true)
@@ -758,18 +939,39 @@ function injectGoogleFonts() {
         }
 
         modalData.enableBtn.onclick = () => {
-          this.overlayText = modalData.textInput.value.trim()
-          this.selectedFont = modalData.fontSelect.value
-          this.bgColor = modalData.bgColorInput.value
-          this.textColor = modalData.textColorInput.value
+          const nextSettings = {
+            overlayText: modalData.textInput.value.trim(),
+            selectedFont: modalData.fontSelect.value,
+            bgColor: modalData.bgColorInput.value,
+            textColor: modalData.textColorInput.value,
+            previewBeforeToggle: modalData.previewToggleInput.checked
+          }
 
-          if (!this.overlayText) {
+          if (!nextSettings.overlayText) {
             alert("Please enter some text")
             return
           }
 
-          this.setEnabled(true)
-          modalData.overlay.remove()
+          this.applySettings(nextSettings)
+          this.savePreferences()
+
+          if (!this.previewBeforeToggle) {
+            this.setEnabled(true)
+            modalData.overlay.remove()
+            return
+          }
+
+          this.previewToggleState({ targetEnabled: true, settings: nextSettings })
+            .then(confirmed => {
+              if (confirmed) {
+                this.setEnabled(true)
+              }
+              modalData.overlay.remove()
+            })
+            .catch(error => {
+              console.error("Error accessing camera for preview:", error)
+              alert(error.message || "Could not open the preview")
+            })
         }
 
         modalData.textInput.focus()

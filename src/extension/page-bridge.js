@@ -6,14 +6,19 @@ const MESSAGE_SOURCE = "camera-text-overlay-extension"
 const manager = new TextOverlayManager()
 let initialized = false
 
-function applySettings(settings = {}) {
-  manager.applySettings({
+function normalizeSettings(settings = {}) {
+  return {
     enabled: settings.enabled === true,
     overlayText: settings.overlayText || DEFAULT_OVERLAY_SETTINGS.overlayText,
     selectedFont: settings.selectedFont || DEFAULT_OVERLAY_SETTINGS.selectedFont,
     bgColor: settings.bgColor || DEFAULT_OVERLAY_SETTINGS.bgColor,
-    textColor: settings.textColor || DEFAULT_OVERLAY_SETTINGS.textColor
-  })
+    textColor: settings.textColor || DEFAULT_OVERLAY_SETTINGS.textColor,
+    previewBeforeToggle: settings.previewBeforeToggle === true
+  }
+}
+
+function applySettings(settings = {}) {
+  manager.applySettings(normalizeSettings(settings))
 
   if (!initialized) {
     manager.initializeCore({ hideToggle: true })

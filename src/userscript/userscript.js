@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Camera Text Overlay
 // @namespace    https://github.com/gekkedev/camera-text-overlay
-// @version      2.0.1
+// @version      2.1.0
 // @description  Replaces the camera stream with specified text for others to see
 // @author       gekkedev
 // @updateURL    https://raw.githubusercontent.com/gekkedev/camera-text-overlay/main/camera-text-overlay.user.js
@@ -38,6 +38,7 @@
       this.bgColor = GM_getValue("bgColor", DEFAULT_OVERLAY_SETTINGS.bgColor)
       this.textColor = GM_getValue("textColor", DEFAULT_OVERLAY_SETTINGS.textColor)
       this.enabled = GM_getValue("overlayEnabled", DEFAULT_OVERLAY_SETTINGS.enabled)
+      this.previewBeforeToggle = GM_getValue("previewBeforeToggle", DEFAULT_OVERLAY_SETTINGS.previewBeforeToggle)
     }
 
     savePreferences() {
@@ -46,6 +47,7 @@
       GM_setValue("bgColor", this.bgColor)
       GM_setValue("textColor", this.textColor)
       GM_setValue("overlayEnabled", this.enabled)
+      GM_setValue("previewBeforeToggle", this.previewBeforeToggle)
     }
 
     updateMenuCommands() {
@@ -76,7 +78,7 @@
       } else {
         register("🟢 Enable Text Overlay", () => this.toggleFeature())
       }
-      
+
       register("⚙️ Configure Settings", () => this.showSettingsModal())
       register("🔄 Reset Settings", () => this.resetSettings())
 
@@ -92,7 +94,7 @@
         this.selectedFont = modalData.fontSelect.value
         this.bgColor = modalData.bgColorInput.value
         this.textColor = modalData.textColorInput.value
-        this.savePreferences()
+        this.previewBeforeToggle = modalData.previewToggleInput.checked
         this.setEnabled(this.enabled)
         document.body.removeChild(modalData.overlay)
       }
@@ -109,6 +111,7 @@
         GM_setValue("bgColor", DEFAULT_OVERLAY_SETTINGS.bgColor)
         GM_setValue("textColor", DEFAULT_OVERLAY_SETTINGS.textColor)
         GM_setValue("overlayEnabled", DEFAULT_OVERLAY_SETTINGS.enabled)
+        GM_setValue("previewBeforeToggle", DEFAULT_OVERLAY_SETTINGS.previewBeforeToggle)
         this.loadPreferences()
         this.setEnabled(this.enabled)
         alert("Settings reset to defaults")
@@ -116,29 +119,21 @@
     }
 
     toggleFeature() {
-      const nativeGetUserMedia = this.getNativeGetUserMedia()
-      if (!nativeGetUserMedia) {
-        alert("Camera access is not available on this page")
-        return
-      }
-
       if (this.enabled) {
-        const previewData = this.createPreviewModal()
-        document.body.appendChild(previewData.overlay)
+        if (!this.previewBeforeToggle) {
+          this.setEnabled(false)
+          return
+        }
 
-        nativeGetUserMedia({ video: true })
-          .then(stream => {
-            previewData.previewVideo.srcObject = stream
-
-            previewData.confirmBtn.onclick = () => {
-              stream.getTracks().forEach(track => track.stop())
+        this.previewToggleState({ targetEnabled: false })
+          .then(confirmed => {
+            if (confirmed) {
               this.setEnabled(false)
-              previewData.overlay.remove()
             }
           })
-          .catch(e => {
-            console.error("Error accessing camera for preview:", e)
-            previewData.overlay.remove()
+          .catch(error => {
+            console.error("Error accessing camera for preview:", error)
+            alert(error.message || "Could not open the preview")
           })
       } else {
         const modalData = this.createSettingsModal(true)
@@ -149,18 +144,39 @@
         }
 
         modalData.enableBtn.onclick = () => {
-          this.overlayText = modalData.textInput.value.trim()
-          this.selectedFont = modalData.fontSelect.value
-          this.bgColor = modalData.bgColorInput.value
-          this.textColor = modalData.textColorInput.value
+          const nextSettings = {
+            overlayText: modalData.textInput.value.trim(),
+            selectedFont: modalData.fontSelect.value,
+            bgColor: modalData.bgColorInput.value,
+            textColor: modalData.textColorInput.value,
+            previewBeforeToggle: modalData.previewToggleInput.checked
+          }
 
-          if (!this.overlayText) {
+          if (!nextSettings.overlayText) {
             alert("Please enter some text")
             return
           }
 
-          this.setEnabled(true)
-          modalData.overlay.remove()
+          this.applySettings(nextSettings)
+          this.savePreferences()
+
+          if (!this.previewBeforeToggle) {
+            this.setEnabled(true)
+            modalData.overlay.remove()
+            return
+          }
+
+          this.previewToggleState({ targetEnabled: true, settings: nextSettings })
+            .then(confirmed => {
+              if (confirmed) {
+                this.setEnabled(true)
+              }
+              modalData.overlay.remove()
+            })
+            .catch(error => {
+              console.error("Error accessing camera for preview:", error)
+              alert(error.message || "Could not open the preview")
+            })
         }
 
         modalData.textInput.focus()

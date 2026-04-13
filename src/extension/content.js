@@ -12,7 +12,8 @@ function normalizeSettings(settings = {}) {
     overlayText: settings.overlayText || DEFAULT_OVERLAY_SETTINGS.overlayText,
     selectedFont: settings.selectedFont || DEFAULT_OVERLAY_SETTINGS.selectedFont,
     bgColor: settings.bgColor || DEFAULT_OVERLAY_SETTINGS.bgColor,
-    textColor: settings.textColor || DEFAULT_OVERLAY_SETTINGS.textColor
+    textColor: settings.textColor || DEFAULT_OVERLAY_SETTINGS.textColor,
+    previewBeforeToggle: settings.previewBeforeToggle === true
   }
 }
 
@@ -22,14 +23,15 @@ function sendSettingsToPage(settings) {
 }
 
 chrome.storage.local.get(
-  ["overlayEnabled", "overlayText", "selectedFont", "bgColor", "textColor"],
+  ["overlayEnabled", "overlayText", "selectedFont", "bgColor", "textColor", "previewBeforeToggle"],
   result => {
     sendSettingsToPage({
       enabled: result.overlayEnabled === true,
       overlayText: result.overlayText,
       selectedFont: result.selectedFont,
       bgColor: result.bgColor,
-      textColor: result.textColor
+      textColor: result.textColor,
+      previewBeforeToggle: result.previewBeforeToggle === true
     })
   }
 )
@@ -44,6 +46,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 window.addEventListener("message", event => {
   const data = event && event.data
   if (!data || data.source !== MESSAGE_SOURCE) return
+
   if (data.type === "OVERLAY_READY" && lastSettings) {
     sendSettingsToPage(lastSettings)
   }

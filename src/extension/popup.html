@@ -76,6 +76,27 @@
         border-color: #6200ea;
       }
 
+      .checkbox-field {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 0;
+        cursor: pointer;
+      }
+
+      .checkbox-field input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        margin: 0;
+        flex: 0 0 auto;
+      }
+
+      .checkbox-field span {
+        font-size: 14px;
+        color: #555;
+        font-weight: 500;
+      }
+
       .button-group {
         display: flex;
         gap: 10px;
@@ -117,6 +138,11 @@
         background-color: #f44336;
       }
 
+      button:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+      }
+
       .status {
         padding: 12px;
         border-radius: 4px;
@@ -145,6 +171,30 @@
         font-size: 12px;
         color: #888;
         margin-top: 8px;
+      }
+
+      .preview-section {
+        margin-top: 20px;
+        padding: 14px;
+        border: 1px solid #e2e2e2;
+        border-radius: 8px;
+        background: #fafafa;
+      }
+
+      .preview-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 6px;
+      }
+
+      .preview-canvas {
+        display: block;
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        border-radius: 6px;
+        background: #101010;
+        margin-top: 12px;
       }
     </style>
   </head>
@@ -182,9 +232,23 @@
         <input type="color" id="textColor" />
       </div>
 
+      <div class="form-group">
+        <label class="checkbox-field" for="previewBeforeToggle">
+          <input type="checkbox" id="previewBeforeToggle" />
+          <span>Preview before toggling on or off</span>
+        </label>
+        <div class="info-text">Show the bare camera before disabling or an overlay preview before enabling.</div>
+      </div>
+
       <div class="button-group">
         <button id="saveBtn" class="btn-enable">Save Settings</button>
         <button id="toggleBtn" class="btn-enable">Enable Overlay</button>
+      </div>
+
+      <div id="previewSection" class="preview-section" hidden>
+        <div id="previewTitle" class="preview-title">Preview</div>
+        <div id="previewHint" class="info-text"></div>
+        <canvas id="previewCanvas" class="preview-canvas" width="640" height="360"></canvas>
       </div>
     </div>
 
