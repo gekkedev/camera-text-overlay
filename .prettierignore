@@ -1,0 +1,4 @@
+camera-text-overlay.user.js
+dist/
+.vscode/
+pnpm-lock.yaml

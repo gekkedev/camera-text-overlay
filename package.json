@@ -4,7 +4,8 @@
   "description": "",
   "main": "camera-text-overlay.user.js",
   "scripts": {
-    "build": "node build.js"
+    "build": "node build.js",
+    "format:check": "prettier --check ."
   },
   "keywords": [],
   "author": "gekkedev",
