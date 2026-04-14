@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Camera Text Overlay
 // @namespace    https://github.com/gekkedev/camera-text-overlay
-// @version      2.1.0
+// @version      2.2.0
 // @description  Replaces the camera stream with specified text for others to see
 // @author       gekkedev
 // @updateURL    https://raw.githubusercontent.com/gekkedev/camera-text-overlay/main/camera-text-overlay.user.js

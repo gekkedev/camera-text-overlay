@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Camera Text Overlay",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Replace your camera stream with a customizable text overlay for video calls",
   "permissions": ["storage"],
   "host_permissions": ["<all_urls>"],
@@ -31,6 +31,12 @@
   "background": {
     "service_worker": "background.js"
   },
+  "web_accessible_resources": [
+    {
+      "resources": ["music/*"],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "icons": {
     "16": "images/icon-16.png",
     "48": "images/icon-48.png",

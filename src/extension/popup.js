@@ -6,6 +6,8 @@ const selectedFontSelect = document.getElementById("selectedFont")
 const bgColorInput = document.getElementById("bgColor")
 const textColorInput = document.getElementById("textColor")
 const previewBeforeToggleInput = document.getElementById("previewBeforeToggle")
+const elevatorStyleMusicInput = document.getElementById("elevatorStyleMusic")
+const selectedMusicTrackSelect = document.getElementById("selectedMusicTrack")
 const settingsToggleBtn = document.getElementById("settingsToggleBtn")
 const settingsPanel = document.getElementById("settingsPanel")
 const toggleBtn = document.getElementById("toggleBtn")
@@ -22,6 +24,13 @@ const previewState = {
   frameHandle: null,
   renderToken: 0
 }
+const MUSIC_TRACKS = [
+  { fileName: "Corporate Calm™.mp3", label: "Corporate Calm™" },
+  { fileName: "Sky Lobby Drift.mp3", label: "Sky Lobby Drift" },
+  { fileName: "Soft Floors, Slow Doors.mp3", label: "Soft Floors, Slow Doors" },
+  { fileName: "Waiting Protocol.mp3", label: "Waiting Protocol" }
+]
+const DEFAULT_MUSIC_TRACK = MUSIC_TRACKS[0]?.fileName || ""
 
 let currentState = {
   enabled: false,
@@ -29,13 +38,43 @@ let currentState = {
   selectedFont: "Titillium Web",
   bgColor: "#101010",
   textColor: "#ffd744",
-  previewBeforeToggle: false
+  previewBeforeToggle: false,
+  elevatorStyleMusic: false,
+  selectedMusicTrack: DEFAULT_MUSIC_TRACK
+}
+
+function normalizeSelectedMusicTrack(selectedMusicTrack) {
+  if (MUSIC_TRACKS.some(track => track.fileName === selectedMusicTrack)) {
+    return selectedMusicTrack
+  }
+
+  return DEFAULT_MUSIC_TRACK
+}
+
+function populateMusicTrackOptions() {
+  selectedMusicTrackSelect.textContent = ""
+
+  MUSIC_TRACKS.forEach(track => {
+    const option = document.createElement("option")
+    option.value = track.fileName
+    option.textContent = track.label
+    selectedMusicTrackSelect.appendChild(option)
+  })
 }
 
 // Load saved settings
 function loadSettings() {
   chrome.storage.local.get(
-    ["overlayEnabled", "overlayText", "selectedFont", "bgColor", "textColor", "previewBeforeToggle"],
+    [
+      "overlayEnabled",
+      "overlayText",
+      "selectedFont",
+      "bgColor",
+      "textColor",
+      "previewBeforeToggle",
+      "elevatorStyleMusic",
+      "selectedMusicTrack"
+    ],
     result => {
       currentState.enabled = result.overlayEnabled === true
       currentState.overlayText = result.overlayText || "be right back 😴"
@@ -43,6 +82,8 @@ function loadSettings() {
       currentState.bgColor = result.bgColor || "#101010"
       currentState.textColor = result.textColor || "#ffd744"
       currentState.previewBeforeToggle = result.previewBeforeToggle === true
+      currentState.elevatorStyleMusic = result.elevatorStyleMusic === true && MUSIC_TRACKS.length > 0
+      currentState.selectedMusicTrack = normalizeSelectedMusicTrack(result.selectedMusicTrack)
 
       updateUI()
       renderPreview()
@@ -56,6 +97,8 @@ function syncStateFromInputs() {
   currentState.bgColor = bgColorInput.value
   currentState.textColor = textColorInput.value
   currentState.previewBeforeToggle = previewBeforeToggleInput.checked
+  currentState.elevatorStyleMusic = elevatorStyleMusicInput.checked && MUSIC_TRACKS.length > 0
+  currentState.selectedMusicTrack = normalizeSelectedMusicTrack(selectedMusicTrackSelect.value)
 }
 
 function applySnapshot(settings = {}) {
@@ -64,6 +107,8 @@ function applySnapshot(settings = {}) {
   currentState.bgColor = settings.bgColor ?? currentState.bgColor
   currentState.textColor = settings.textColor ?? currentState.textColor
   currentState.previewBeforeToggle = settings.previewBeforeToggle ?? currentState.previewBeforeToggle
+  currentState.elevatorStyleMusic = settings.elevatorStyleMusic ?? currentState.elevatorStyleMusic
+  currentState.selectedMusicTrack = normalizeSelectedMusicTrack(settings.selectedMusicTrack ?? currentState.selectedMusicTrack)
 }
 
 function resizePreviewCanvas(width = 640, height = 360) {
@@ -214,6 +259,10 @@ function updateUI() {
   bgColorInput.value = currentState.bgColor
   textColorInput.value = currentState.textColor
   previewBeforeToggleInput.checked = currentState.previewBeforeToggle
+  elevatorStyleMusicInput.checked = currentState.elevatorStyleMusic
+  elevatorStyleMusicInput.disabled = MUSIC_TRACKS.length === 0
+  selectedMusicTrackSelect.value = normalizeSelectedMusicTrack(currentState.selectedMusicTrack)
+  selectedMusicTrackSelect.disabled = MUSIC_TRACKS.length === 0 || !currentState.elevatorStyleMusic
   previewSection.hidden = !currentState.previewBeforeToggle
 
   if (currentState.enabled) {
@@ -241,7 +290,9 @@ function saveSettings() {
     selectedFont: currentState.selectedFont,
     bgColor: currentState.bgColor,
     textColor: currentState.textColor,
-    previewBeforeToggle: currentState.previewBeforeToggle
+    previewBeforeToggle: currentState.previewBeforeToggle,
+    elevatorStyleMusic: currentState.elevatorStyleMusic,
+    selectedMusicTrack: currentState.selectedMusicTrack
   })
 
   // Notify content scripts of the change
@@ -300,6 +351,15 @@ previewBeforeToggleInput.addEventListener("change", () => {
   renderPreview()
 })
 
+elevatorStyleMusicInput.addEventListener("change", () => {
+  currentState.elevatorStyleMusic = elevatorStyleMusicInput.checked && MUSIC_TRACKS.length > 0
+  updateUI()
+})
+
+selectedMusicTrackSelect.addEventListener("change", () => {
+  currentState.selectedMusicTrack = normalizeSelectedMusicTrack(selectedMusicTrackSelect.value)
+})
+
 settingsToggleBtn.addEventListener("click", event => {
   event.stopPropagation()
   setSettingsMenuOpen(settingsPanel.hidden)
@@ -330,6 +390,7 @@ toggleBtn.addEventListener("click", () => {
 })
 
 // Load settings when popup opens
+populateMusicTrackOptions()
 loadSettings()
 
 window.addEventListener("unload", () => {
@@ -373,6 +434,12 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     }
     if (changes.previewBeforeToggle) {
       currentState.previewBeforeToggle = changes.previewBeforeToggle.newValue === true
+    }
+    if (changes.elevatorStyleMusic) {
+      currentState.elevatorStyleMusic = changes.elevatorStyleMusic.newValue === true && MUSIC_TRACKS.length > 0
+    }
+    if (changes.selectedMusicTrack) {
+      currentState.selectedMusicTrack = normalizeSelectedMusicTrack(changes.selectedMusicTrack.newValue)
     }
     updateUI()
     renderPreview()

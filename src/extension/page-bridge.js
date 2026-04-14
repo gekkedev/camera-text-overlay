@@ -3,8 +3,9 @@
 /*__OVERLAY_SHARED__*/
 
 const MESSAGE_SOURCE = "camera-text-overlay-extension"
-const manager = new TextOverlayManager()
-let initialized = false
+const manager = new TextOverlayManager({
+  onFirstCameraRequest: () => injectGoogleFonts()
+})
 
 function normalizeSettings(settings = {}) {
   return {
@@ -13,21 +14,19 @@ function normalizeSettings(settings = {}) {
     selectedFont: settings.selectedFont || DEFAULT_OVERLAY_SETTINGS.selectedFont,
     bgColor: settings.bgColor || DEFAULT_OVERLAY_SETTINGS.bgColor,
     textColor: settings.textColor || DEFAULT_OVERLAY_SETTINGS.textColor,
-    previewBeforeToggle: settings.previewBeforeToggle === true
+    previewBeforeToggle: settings.previewBeforeToggle === true,
+    elevatorStyleMusic: settings.elevatorStyleMusic === true,
+    selectedMusicTrack: settings.selectedMusicTrack || DEFAULT_OVERLAY_SETTINGS.selectedMusicTrack,
+    waitingMusicUrl: settings.waitingMusicUrl || ""
   }
 }
 
 function applySettings(settings = {}) {
   manager.applySettings(normalizeSettings(settings))
-
-  if (!initialized) {
-    manager.initializeCore({ hideToggle: true })
-    injectGoogleFonts()
-    initialized = true
-  }
-
   manager.setEnabled(manager.enabled)
 }
+
+manager.initializeCore({ hideToggle: true })
 
 window.addEventListener("message", event => {
   const data = event && event.data

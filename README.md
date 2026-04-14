@@ -4,6 +4,13 @@ Replace your camera stream with a customizable text for video calls. Great for "
 
 ![Preview](google-meet.png)
 
+## Use Cases
+
+- **BRB / away for a minute**: show a clear "be right back 😴" card instead of an empty chair or ceiling view.
+- **Short waiting-room handoff**: leave a clean placeholder on screen while you grab water, answer the door, or switch rooms.
+- **Low-friction status signaling**: display messages like "back in 2 min", "recording in progress", or "heads down, still listening".
+- **Lobby-style hold screen**: pair a BRB message with looping elevator-style waiting music while the overlay is active.
+
 ## Features
 
 ### Two Installation Methods:
@@ -17,6 +24,8 @@ Replace your camera stream with a customizable text for video calls. Great for "
 - text color
 - background color
 - font selection (6 included fonts)
+- optional looping waiting music
+- waiting music track selection
 
 ### Controls
 
@@ -129,6 +138,18 @@ Option B: **Download the pre-built extension**
 
 Settings are saved automatically and sync across all tabs.
 
+#### Audio Notes
+
+The extension tampers only with your system's default microphone. Pick the microphone you actually want to use as the OS-level default input device outside the extension first.
+
+If you use looping waiting music in Google Meet, disable Meet's **Studio sound** option. It may be enabled by default and can suppress or distort the music because Meet treats it as non-speech audio.
+
+![Google Meet Studio sound should be disabled](assets/google-meet-studio-sound-off.svg)
+
+If you debug Google Meet with two windows open at the same time, disable Meet's **Adaptive audio** option as well. That setting can merge nearby-device audio paths and make debugging the tampered mic stream confusing.
+
+![Google Meet Adaptive audio should be disabled for two-window debugging](assets/google-meet-adaptive-audio-off.svg)
+
 ## Building from Source
 
 ### Requirements
@@ -178,15 +199,31 @@ The script intercepts your browser's `getUserMedia()` API call (used by video ap
 
 1. **Captures** the camera stream
 2. **Draws** your custom text on a canvas if enabled
-3. **Returns** the modified stream to the webpage
+3. **Switches** outgoing audio between your real microphone and the selected looping waiting track when enabled
+4. **Returns** the modified stream to the webpage
 
 Since the modification happens at the browser level, video calling apps (Google Meet, Zoom, Teams, etc.) see your overlay stream instead of your real camera.
+
+For audio, the extension tampers with the default system microphone stream exposed to the browser. It does not pick a microphone device on its own.
+
+## Waiting Music Asset Guidance
+
+If you add or replace waiting-music assets, use small web-friendly files. High bitrate is unnecessary for hold music.
+
+- **Recommended format**: `MP3`
+- **Sample rate**: `44.1-48 kHz`
+- **Bitrate target**: `64-96 kbps` stereo or `48-64 kbps` mono
+- **Length**: short seamless loop, ideally `15-60 seconds`
+- **Editing goal**: avoid abrupt starts or ends so the loop can repeat cleanly
+
+The bundled waiting tracks are already lightweight `MP3` files at `64 kbps` stereo / `48 kHz`, which is adequate for this extension.
 
 ## Known Limitations
 
 1. **No Firefox extension** - Extension only works on Chrome/Chromium (Firefox uses different manifest)
 1. **Single font size** - Currently hardcoded to 50px
 1. **No toggle keyboard shortcut** - Could be added via Chrome commands API
+1. **Userscript waiting music is not wired up yet** - bundled music asset loading currently works only in the Chrome extension
 
 ## Contributing
 
@@ -225,6 +262,12 @@ A: Mobile browsers don't support userscripts/extensions in the same way. This is
 
 **Q: Can I use custom fonts?**  
 A: Currently limited to 6 built-in fonts. Custom fonts are a potential future feature.
+
+**Q: Does the waiting music loop?**  
+A: Yes. When elevator-style music is enabled, the selected track loops for as long as the overlay stays active.
+
+**Q: Which microphone does the extension modify?**  
+A: It tampers with the browser's default system microphone input. Set the microphone you want to use as your OS default before joining the call.
 
 **Q: What if I want to go back to showing my real camera?**  
 A:

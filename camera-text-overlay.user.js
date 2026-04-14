@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Camera Text Overlay
 // @namespace    https://github.com/gekkedev/camera-text-overlay
-// @version      2.1.0
+// @version      2.2.0
 // @description  Replaces the camera stream with specified text for others to see
 // @author       gekkedev
 // @updateURL    https://raw.githubusercontent.com/gekkedev/camera-text-overlay/main/camera-text-overlay.user.js
@@ -28,7 +28,10 @@ const DEFAULT_OVERLAY_SETTINGS = {
   selectedFont: "Titillium Web",
   bgColor: "#101010",
   textColor: "#ffd744",
-  previewBeforeToggle: false
+  previewBeforeToggle: false,
+  elevatorStyleMusic: false,
+  selectedMusicTrack: "Corporate Calm™.mp3",
+  waitingMusicUrl: ""
 }
 
 class TextOverlayManager {
@@ -40,12 +43,16 @@ class TextOverlayManager {
     this.bgColor = options.bgColor ?? defaults.bgColor
     this.textColor = options.textColor ?? defaults.textColor
     this.previewBeforeToggle = options.previewBeforeToggle ?? defaults.previewBeforeToggle
+    this.elevatorStyleMusic = options.elevatorStyleMusic ?? defaults.elevatorStyleMusic
+    this.selectedMusicTrack = options.selectedMusicTrack ?? defaults.selectedMusicTrack
+    this.waitingMusicUrl = options.waitingMusicUrl ?? defaults.waitingMusicUrl
     this.toggle = null
     this.mediaDevices = options.mediaDevices || navigator.mediaDevices
     this.onStateChange = options.onStateChange || (() => {})
     this.onFirstCameraRequest = options.onFirstCameraRequest || (() => {})
     this.hasCameraRequest = false
     this.patchRetryTimer = null
+    this.activeAudioMixControllers = new Set()
   }
 
   applySettings(settings = {}) {
@@ -67,6 +74,17 @@ class TextOverlayManager {
     if (typeof settings.previewBeforeToggle === "boolean") {
       this.previewBeforeToggle = settings.previewBeforeToggle
     }
+    if (typeof settings.elevatorStyleMusic === "boolean") {
+      this.elevatorStyleMusic = settings.elevatorStyleMusic
+    }
+    if (typeof settings.selectedMusicTrack === "string") {
+      this.selectedMusicTrack = settings.selectedMusicTrack
+    }
+    if (typeof settings.waitingMusicUrl === "string") {
+      this.waitingMusicUrl = settings.waitingMusicUrl
+    }
+
+    this.syncManagedAudioMixers()
   }
 
   getSettingsSnapshot(overrides = {}) {
@@ -77,7 +95,12 @@ class TextOverlayManager {
       bgColor: typeof overrides.bgColor === "string" ? overrides.bgColor : this.bgColor,
       textColor: typeof overrides.textColor === "string" ? overrides.textColor : this.textColor,
       previewBeforeToggle:
-        typeof overrides.previewBeforeToggle === "boolean" ? overrides.previewBeforeToggle : this.previewBeforeToggle
+        typeof overrides.previewBeforeToggle === "boolean" ? overrides.previewBeforeToggle : this.previewBeforeToggle,
+      elevatorStyleMusic:
+        typeof overrides.elevatorStyleMusic === "boolean" ? overrides.elevatorStyleMusic : this.elevatorStyleMusic,
+      selectedMusicTrack:
+        typeof overrides.selectedMusicTrack === "string" ? overrides.selectedMusicTrack : this.selectedMusicTrack,
+      waitingMusicUrl: typeof overrides.waitingMusicUrl === "string" ? overrides.waitingMusicUrl : this.waitingMusicUrl
     }
   }
 
@@ -153,6 +176,24 @@ class TextOverlayManager {
     }
   }
 
+  syncManagedAudioMixers() {
+    this.activeAudioMixControllers.forEach(controller => {
+      Promise.resolve(controller.sync()).catch(() => {})
+    })
+  }
+
+  updateGainNode(gainNode, value, audioContext) {
+    if (!gainNode || !gainNode.gain || typeof gainNode.gain.setValueAtTime !== "function") {
+      return
+    }
+
+    if (typeof gainNode.gain.cancelScheduledValues === "function") {
+      gainNode.gain.cancelScheduledValues(audioContext.currentTime)
+    }
+
+    gainNode.gain.setValueAtTime(value, audioContext.currentTime)
+  }
+
   decorateOverlayTrack({ overlayTrack, sourceTrack, resizeCanvas, cleanup }) {
     if (!overlayTrack || !sourceTrack) return
 
@@ -212,6 +253,261 @@ class TextOverlayManager {
         nativeStop()
       }
     }
+  }
+
+  decorateAudioTrack({ mixedTrack, sourceTrack, cleanup }) {
+    if (!mixedTrack) return
+
+    const nativeGetSettings = typeof mixedTrack.getSettings === "function" ? mixedTrack.getSettings.bind(mixedTrack) : null
+    const nativeGetCapabilities =
+      typeof mixedTrack.getCapabilities === "function" ? mixedTrack.getCapabilities.bind(mixedTrack) : null
+    const nativeGetConstraints =
+      typeof mixedTrack.getConstraints === "function" ? mixedTrack.getConstraints.bind(mixedTrack) : null
+    const nativeApplyConstraints =
+      typeof mixedTrack.applyConstraints === "function" ? mixedTrack.applyConstraints.bind(mixedTrack) : null
+    const nativeStop = typeof mixedTrack.stop === "function" ? mixedTrack.stop.bind(mixedTrack) : null
+
+    mixedTrack.getSettings = () => ({
+      ...(nativeGetSettings ? nativeGetSettings() : {}),
+      ...this.getTrackSettings(sourceTrack)
+    })
+
+    if ((sourceTrack && typeof sourceTrack.getCapabilities === "function") || nativeGetCapabilities) {
+      mixedTrack.getCapabilities = () => {
+        if (sourceTrack && typeof sourceTrack.getCapabilities === "function") {
+          return sourceTrack.getCapabilities() || {}
+        }
+        return nativeGetCapabilities ? nativeGetCapabilities() : {}
+      }
+    }
+
+    if ((sourceTrack && typeof sourceTrack.getConstraints === "function") || nativeGetConstraints) {
+      mixedTrack.getConstraints = () => {
+        if (sourceTrack && typeof sourceTrack.getConstraints === "function") {
+          return sourceTrack.getConstraints() || {}
+        }
+        return nativeGetConstraints ? nativeGetConstraints() : {}
+      }
+    }
+
+    if ((sourceTrack && typeof sourceTrack.applyConstraints === "function") || nativeApplyConstraints) {
+      mixedTrack.applyConstraints = async constraints => {
+        if (sourceTrack && typeof sourceTrack.applyConstraints === "function") {
+          await sourceTrack.applyConstraints(constraints)
+        }
+
+        if (nativeApplyConstraints) {
+          try {
+            await nativeApplyConstraints(constraints)
+          } catch (error) {
+            // Destination tracks often ignore device-level constraints that the source track accepts.
+          }
+        }
+      }
+    }
+
+    mixedTrack.stop = () => {
+      cleanup()
+      if (nativeStop) {
+        nativeStop()
+      }
+    }
+  }
+
+  createManagedAudioStream(oldStream) {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext
+    if (!AudioContextClass) {
+      return oldStream
+    }
+
+    const sourceTrack = oldStream.getAudioTracks()[0] || null
+    const audioContext = new AudioContextClass()
+    const mixedDestination = audioContext.createMediaStreamDestination()
+    const mixedTrack = mixedDestination.stream.getAudioTracks()[0]
+    const micGain = audioContext.createGain()
+    const musicGain = audioContext.createGain()
+    let micSource = null
+    let activeMusicSource = null
+    let isCleanedUp = false
+    let activeMusicUrl = ""
+    let loadedMusicUrl = ""
+    let loadedMusicBuffer = null
+    let loadToken = 0
+
+    if (typeof audioContext.resume === "function") {
+      audioContext.resume().catch(() => {})
+    }
+
+    if (sourceTrack) {
+      const micStream = new MediaStream()
+      oldStream.getAudioTracks().forEach(track => micStream.addTrack(track))
+      micSource = audioContext.createMediaStreamSource(micStream)
+      micSource.connect(micGain)
+    }
+
+    micGain.connect(mixedDestination)
+    musicGain.connect(mixedDestination)
+
+    const stopActiveMusicSource = () => {
+      if (!activeMusicSource) {
+        return
+      }
+
+      const source = activeMusicSource
+      activeMusicSource = null
+      activeMusicUrl = ""
+
+      if (typeof source.disconnect === "function") {
+        source.disconnect()
+      }
+
+      try {
+        source.stop()
+      } catch (error) {
+        // Ignore stop calls on already-ended buffer sources.
+      }
+    }
+
+    const decodeAudioBuffer = arrayBuffer =>
+      new Promise((resolve, reject) => {
+        const bufferCopy = arrayBuffer.slice(0)
+        const maybePromise = audioContext.decodeAudioData(bufferCopy, resolve, reject)
+        if (maybePromise && typeof maybePromise.then === "function") {
+          maybePromise.then(resolve).catch(reject)
+        }
+      })
+
+    const loadWaitingMusicBuffer = async waitingMusicUrl => {
+      if (!waitingMusicUrl) {
+        return null
+      }
+
+      if (loadedMusicUrl === waitingMusicUrl && loadedMusicBuffer) {
+        return loadedMusicBuffer
+      }
+
+      const currentLoadToken = ++loadToken
+      const response = await fetch(waitingMusicUrl)
+      if (!response.ok) {
+        throw new Error(`Could not load waiting music: ${response.status}`)
+      }
+
+      const arrayBuffer = await response.arrayBuffer()
+      if (isCleanedUp || currentLoadToken !== loadToken) {
+        return null
+      }
+
+      const decodedBuffer = await decodeAudioBuffer(arrayBuffer)
+      if (isCleanedUp || currentLoadToken !== loadToken) {
+        return null
+      }
+
+      loadedMusicUrl = waitingMusicUrl
+      loadedMusicBuffer = decodedBuffer
+      return decodedBuffer
+    }
+
+    const cleanup = () => {
+      if (isCleanedUp) return
+      isCleanedUp = true
+      this.activeAudioMixControllers.delete(controller)
+      loadToken += 1
+      stopActiveMusicSource()
+
+      oldStream.getAudioTracks().forEach(track => {
+        if (track.readyState !== "ended") {
+          track.stop()
+        }
+      })
+
+      if (micSource && typeof micSource.disconnect === "function") {
+        micSource.disconnect()
+      }
+      if (typeof micGain.disconnect === "function") {
+        micGain.disconnect()
+      }
+      if (typeof musicGain.disconnect === "function") {
+        musicGain.disconnect()
+      }
+      if (typeof audioContext.close === "function") {
+        audioContext.close().catch(() => {})
+      }
+    }
+
+    const controller = {
+      sync: async () => {
+        if (isCleanedUp) {
+          return
+        }
+
+        const targetMusicUrl = this.waitingMusicUrl
+        const shouldUseMusic = Boolean(this.enabled && this.elevatorStyleMusic && targetMusicUrl)
+        this.updateGainNode(micGain, shouldUseMusic || !micSource ? 0 : 1, audioContext)
+        this.updateGainNode(musicGain, shouldUseMusic ? 1 : 0, audioContext)
+
+        if (!shouldUseMusic) {
+          stopActiveMusicSource()
+          return
+        }
+
+        if (audioContext.state === "suspended" && typeof audioContext.resume === "function") {
+          try {
+            await audioContext.resume()
+          } catch (error) {
+            // Ignore resume failures; the mixer will stay silent until the context can run.
+          }
+        }
+
+        const musicBuffer = await loadWaitingMusicBuffer(targetMusicUrl)
+        if (isCleanedUp || !musicBuffer) {
+          return
+        }
+
+        if (activeMusicSource && activeMusicUrl === targetMusicUrl) {
+          return
+        }
+
+        stopActiveMusicSource()
+
+        const bufferSource = audioContext.createBufferSource()
+        bufferSource.buffer = musicBuffer
+        bufferSource.loop = true
+        bufferSource.connect(musicGain)
+        bufferSource.addEventListener("ended", () => {
+          if (activeMusicSource === bufferSource) {
+            activeMusicSource = null
+            activeMusicUrl = ""
+          }
+        })
+        bufferSource.start(0)
+        activeMusicSource = bufferSource
+        activeMusicUrl = targetMusicUrl
+      }
+    }
+
+    this.activeAudioMixControllers.add(controller)
+    this.decorateAudioTrack({ mixedTrack, sourceTrack, cleanup })
+
+    if (sourceTrack) {
+      sourceTrack.addEventListener(
+        "ended",
+        () => {
+          if (mixedTrack && typeof mixedTrack.stop === "function") {
+            mixedTrack.stop()
+          } else {
+            cleanup()
+          }
+        },
+        { once: true }
+      )
+    }
+
+    if (mixedTrack) {
+      mixedTrack.addEventListener("ended", cleanup, { once: true })
+    }
+
+    Promise.resolve(controller.sync()).catch(() => {})
+    return mixedDestination.stream
   }
 
   createToggleCheckbox({ hidden = true } = {}) {
@@ -728,6 +1024,7 @@ class TextOverlayManager {
     if (this.toggle) {
       this.toggle.checked = enabled
     }
+    this.syncManagedAudioMixers()
     this.onStateChange({ enabled: this.enabled })
   }
 
@@ -747,25 +1044,33 @@ class TextOverlayManager {
     }
 
     async function newGetUserMedia(constraints) {
-      if (constraints && constraints.video) {
+      const wantsVideo = Boolean(constraints && constraints.video)
+      const wantsAudio = Boolean(constraints && constraints.audio)
+
+      if (wantsVideo) {
         if (!manager.hasCameraRequest) {
           manager.hasCameraRequest = true
           manager.onFirstCameraRequest()
         }
       }
 
-      if (constraints && constraints.video) {
+      if (wantsVideo || wantsAudio) {
         const oldStream = await mediaDevices.oldGetUserMedia.call(mediaDevices, constraints)
-        const overlayStream = manager.createTextOverlayMediaStream(oldStream)
+        const overlayStream = wantsVideo ? manager.createTextOverlayMediaStream(oldStream) : oldStream
+        const managedAudioStream = wantsAudio ? manager.createManagedAudioStream(oldStream) : oldStream
 
-        if (constraints.audio) {
+        if (wantsVideo && wantsAudio) {
           const combined = new MediaStream()
           overlayStream.getVideoTracks().forEach(track => combined.addTrack(track))
-          oldStream.getAudioTracks().forEach(track => combined.addTrack(track))
+          managedAudioStream.getAudioTracks().forEach(track => combined.addTrack(track))
           return combined
         }
 
-        return overlayStream
+        if (wantsVideo) {
+          return overlayStream
+        }
+
+        return managedAudioStream
       }
 
       return mediaDevices.oldGetUserMedia.call(mediaDevices, constraints)
