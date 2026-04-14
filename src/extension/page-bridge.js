@@ -16,13 +16,19 @@ function normalizeSettings(settings = {}) {
     textColor: settings.textColor || DEFAULT_OVERLAY_SETTINGS.textColor,
     previewBeforeToggle: settings.previewBeforeToggle === true,
     elevatorStyleMusic: settings.elevatorStyleMusic === true,
+    hearMusicLocally: settings.hearMusicLocally !== false,
+    musicVolume:
+      typeof settings.musicVolume === "number" && Number.isFinite(settings.musicVolume)
+        ? Math.min(1, Math.max(0, settings.musicVolume))
+        : DEFAULT_OVERLAY_SETTINGS.musicVolume,
     selectedMusicTrack: settings.selectedMusicTrack || DEFAULT_OVERLAY_SETTINGS.selectedMusicTrack,
     waitingMusicUrl: settings.waitingMusicUrl || ""
   }
 }
 
 function applySettings(settings = {}) {
-  manager.applySettings(normalizeSettings(settings))
+  const normalizedSettings = normalizeSettings(settings)
+  manager.applySettings(normalizedSettings)
   manager.setEnabled(manager.enabled)
 }
 

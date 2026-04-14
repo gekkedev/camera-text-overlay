@@ -261,6 +261,23 @@
         margin-top: 8px;
       }
 
+      .range-label {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .range-value {
+        font-size: 12px;
+        color: #666;
+        font-weight: 600;
+      }
+
+      input[type="range"] {
+        width: 100%;
+      }
+
       .preview-section {
         margin-top: 20px;
         padding: 14px;
@@ -313,6 +330,19 @@
               <input type="checkbox" id="elevatorStyleMusic" />
               <span>Elevator-style music</span>
             </label>
+            <label class="checkbox-field" for="hearMusicLocally">
+              <input type="checkbox" id="hearMusicLocally" />
+              <span>Let me hear the music too</span>
+            </label>
+            <div class="info-text">If Chrome blocks playback at first, click once in the meeting tab.</div>
+            <div class="form-group">
+              <label class="range-label" for="musicVolume">
+                <span>Music Volume</span>
+                <span id="musicVolumeValue" class="range-value">20%</span>
+              </label>
+              <input type="range" id="musicVolume" min="0" max="100" step="1" />
+              <div class="info-text">Lower by default so it sits well below normal mic presence.</div>
+            </div>
             <div class="form-group">
               <label for="selectedMusicTrack">Track</label>
               <select id="selectedMusicTrack"></select>

@@ -7,6 +7,9 @@ const bgColorInput = document.getElementById("bgColor")
 const textColorInput = document.getElementById("textColor")
 const previewBeforeToggleInput = document.getElementById("previewBeforeToggle")
 const elevatorStyleMusicInput = document.getElementById("elevatorStyleMusic")
+const hearMusicLocallyInput = document.getElementById("hearMusicLocally")
+const musicVolumeInput = document.getElementById("musicVolume")
+const musicVolumeValue = document.getElementById("musicVolumeValue")
 const selectedMusicTrackSelect = document.getElementById("selectedMusicTrack")
 const settingsToggleBtn = document.getElementById("settingsToggleBtn")
 const settingsPanel = document.getElementById("settingsPanel")
@@ -33,6 +36,7 @@ const MUSIC_TRACKS = [
 ]
 const DEFAULT_MUSIC_TRACK = MUSIC_TRACKS[0]?.fileName || ""
 const AUTO_SAVE_DELAY_MS = 150
+const DEFAULT_MUSIC_VOLUME = 0.2
 
 let currentState = {
   enabled: false,
@@ -42,6 +46,8 @@ let currentState = {
   textColor: "#ffd744",
   previewBeforeToggle: false,
   elevatorStyleMusic: false,
+  hearMusicLocally: true,
+  musicVolume: DEFAULT_MUSIC_VOLUME,
   selectedMusicTrack: DEFAULT_MUSIC_TRACK
 }
 let pendingSaveHandle = null
@@ -52,6 +58,19 @@ function normalizeSelectedMusicTrack(selectedMusicTrack) {
   }
 
   return DEFAULT_MUSIC_TRACK
+}
+
+function normalizeMusicVolume(musicVolume) {
+  const numericVolume = Number(musicVolume)
+  if (!Number.isFinite(numericVolume)) {
+    return DEFAULT_MUSIC_VOLUME
+  }
+
+  return Math.min(1, Math.max(0, numericVolume))
+}
+
+function formatMusicVolume(musicVolume) {
+  return `${Math.round(normalizeMusicVolume(musicVolume) * 100)}%`
 }
 
 function populateMusicTrackOptions() {
@@ -76,6 +95,8 @@ function loadSettings() {
       "textColor",
       "previewBeforeToggle",
       "elevatorStyleMusic",
+      "hearMusicLocally",
+      "musicVolume",
       "selectedMusicTrack"
     ],
     result => {
@@ -86,6 +107,8 @@ function loadSettings() {
       currentState.textColor = result.textColor || "#ffd744"
       currentState.previewBeforeToggle = result.previewBeforeToggle === true
       currentState.elevatorStyleMusic = result.elevatorStyleMusic === true && MUSIC_TRACKS.length > 0
+      currentState.hearMusicLocally = result.hearMusicLocally !== false
+      currentState.musicVolume = normalizeMusicVolume(result.musicVolume)
       currentState.selectedMusicTrack = normalizeSelectedMusicTrack(result.selectedMusicTrack)
 
       updateUI()
@@ -101,6 +124,8 @@ function syncStateFromInputs() {
   currentState.textColor = textColorInput.value
   currentState.previewBeforeToggle = previewBeforeToggleInput.checked
   currentState.elevatorStyleMusic = elevatorStyleMusicInput.checked && MUSIC_TRACKS.length > 0
+  currentState.hearMusicLocally = hearMusicLocallyInput.checked
+  currentState.musicVolume = normalizeMusicVolume(Number(musicVolumeInput.value) / 100)
   currentState.selectedMusicTrack = normalizeSelectedMusicTrack(selectedMusicTrackSelect.value)
 }
 
@@ -111,7 +136,11 @@ function applySnapshot(settings = {}) {
   currentState.textColor = settings.textColor ?? currentState.textColor
   currentState.previewBeforeToggle = settings.previewBeforeToggle ?? currentState.previewBeforeToggle
   currentState.elevatorStyleMusic = settings.elevatorStyleMusic ?? currentState.elevatorStyleMusic
-  currentState.selectedMusicTrack = normalizeSelectedMusicTrack(settings.selectedMusicTrack ?? currentState.selectedMusicTrack)
+  currentState.hearMusicLocally = settings.hearMusicLocally ?? currentState.hearMusicLocally
+  currentState.musicVolume = normalizeMusicVolume(settings.musicVolume ?? currentState.musicVolume)
+  currentState.selectedMusicTrack = normalizeSelectedMusicTrack(
+    settings.selectedMusicTrack ?? currentState.selectedMusicTrack
+  )
 }
 
 function resizePreviewCanvas(width = 640, height = 360) {
@@ -264,6 +293,11 @@ function updateUI() {
   previewBeforeToggleInput.checked = currentState.previewBeforeToggle
   elevatorStyleMusicInput.checked = currentState.elevatorStyleMusic
   elevatorStyleMusicInput.disabled = MUSIC_TRACKS.length === 0
+  hearMusicLocallyInput.checked = currentState.hearMusicLocally
+  hearMusicLocallyInput.disabled = MUSIC_TRACKS.length === 0 || !currentState.elevatorStyleMusic
+  musicVolumeInput.value = String(Math.round(currentState.musicVolume * 100))
+  musicVolumeValue.textContent = formatMusicVolume(currentState.musicVolume)
+  musicVolumeInput.disabled = MUSIC_TRACKS.length === 0 || !currentState.elevatorStyleMusic
   selectedMusicTrackSelect.value = normalizeSelectedMusicTrack(currentState.selectedMusicTrack)
   selectedMusicTrackSelect.disabled = MUSIC_TRACKS.length === 0 || !currentState.elevatorStyleMusic
   previewSection.hidden = !currentState.previewBeforeToggle
@@ -317,6 +351,8 @@ function saveSettings() {
     textColor: currentState.textColor,
     previewBeforeToggle: currentState.previewBeforeToggle,
     elevatorStyleMusic: currentState.elevatorStyleMusic,
+    hearMusicLocally: currentState.hearMusicLocally,
+    musicVolume: currentState.musicVolume,
     selectedMusicTrack: currentState.selectedMusicTrack
   })
 
@@ -384,6 +420,18 @@ elevatorStyleMusicInput.addEventListener("change", () => {
   currentState.elevatorStyleMusic = elevatorStyleMusicInput.checked && MUSIC_TRACKS.length > 0
   saveSettings()
   updateUI()
+})
+
+hearMusicLocallyInput.addEventListener("change", () => {
+  currentState.hearMusicLocally = hearMusicLocallyInput.checked
+  saveSettings()
+  updateUI()
+})
+
+musicVolumeInput.addEventListener("input", () => {
+  currentState.musicVolume = normalizeMusicVolume(Number(musicVolumeInput.value) / 100)
+  musicVolumeValue.textContent = formatMusicVolume(currentState.musicVolume)
+  scheduleSettingsSave()
 })
 
 selectedMusicTrackSelect.addEventListener("change", () => {
@@ -494,6 +542,20 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
       const elevatorStyleMusic = changes.elevatorStyleMusic.newValue === true && MUSIC_TRACKS.length > 0
       if (currentState.elevatorStyleMusic !== elevatorStyleMusic) {
         currentState.elevatorStyleMusic = elevatorStyleMusic
+        hasExternalUpdate = true
+      }
+    }
+    if (changes.hearMusicLocally) {
+      const hearMusicLocally = changes.hearMusicLocally.newValue !== false
+      if (currentState.hearMusicLocally !== hearMusicLocally) {
+        currentState.hearMusicLocally = hearMusicLocally
+        hasExternalUpdate = true
+      }
+    }
+    if (changes.musicVolume) {
+      const musicVolume = normalizeMusicVolume(changes.musicVolume.newValue)
+      if (currentState.musicVolume !== musicVolume) {
+        currentState.musicVolume = musicVolume
         hasExternalUpdate = true
       }
     }

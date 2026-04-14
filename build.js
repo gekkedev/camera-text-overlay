@@ -61,6 +61,22 @@ function ensureDir(dir) {
   }
 }
 
+function copyDir(srcDir, destDir) {
+  ensureDir(destDir)
+
+  fs.readdirSync(srcDir, { withFileTypes: true }).forEach(entry => {
+    const srcPath = path.join(srcDir, entry.name)
+    const destPath = path.join(destDir, entry.name)
+
+    if (entry.isDirectory()) {
+      copyDir(srcPath, destPath)
+      return
+    }
+
+    fs.copyFileSync(srcPath, destPath)
+  })
+}
+
 function loadSharedOverlayInline() {
   const sharedOverlay = fs.readFileSync(SHARED_OVERLAY_PATH, "utf8")
   return sharedOverlay.replace(/^export\s+/gm, "").replace(/export\s*\{[^}]+\}\s*;?/gm, "")
@@ -101,6 +117,12 @@ async function main() {
       console.log(`  ✓ ${file}`)
     }
   })
+
+  const extensionMusicDir = path.join(SOURCE_DIR, "extension", "music")
+  if (fs.existsSync(extensionMusicDir)) {
+    copyDir(extensionMusicDir, path.join(EXTENSION_DIR, "music"))
+    console.log("  ✓ music/")
+  }
 
   await generateIcons()
 

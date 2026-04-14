@@ -30,8 +30,19 @@ const DEFAULT_OVERLAY_SETTINGS = {
   textColor: "#ffd744",
   previewBeforeToggle: false,
   elevatorStyleMusic: false,
+  hearMusicLocally: true,
+  musicVolume: 0.2,
   selectedMusicTrack: "Corporate Calm™.mp3",
   waitingMusicUrl: ""
+}
+
+function normalizeMusicVolume(musicVolume) {
+  const numericVolume = Number(musicVolume)
+  if (!Number.isFinite(numericVolume)) {
+    return DEFAULT_OVERLAY_SETTINGS.musicVolume
+  }
+
+  return Math.min(1, Math.max(0, numericVolume))
 }
 
 class TextOverlayManager {
@@ -44,6 +55,8 @@ class TextOverlayManager {
     this.textColor = options.textColor ?? defaults.textColor
     this.previewBeforeToggle = options.previewBeforeToggle ?? defaults.previewBeforeToggle
     this.elevatorStyleMusic = options.elevatorStyleMusic ?? defaults.elevatorStyleMusic
+    this.hearMusicLocally = options.hearMusicLocally ?? defaults.hearMusicLocally
+    this.musicVolume = normalizeMusicVolume(options.musicVolume ?? defaults.musicVolume)
     this.selectedMusicTrack = options.selectedMusicTrack ?? defaults.selectedMusicTrack
     this.waitingMusicUrl = options.waitingMusicUrl ?? defaults.waitingMusicUrl
     this.toggle = null
@@ -77,6 +90,12 @@ class TextOverlayManager {
     if (typeof settings.elevatorStyleMusic === "boolean") {
       this.elevatorStyleMusic = settings.elevatorStyleMusic
     }
+    if (typeof settings.hearMusicLocally === "boolean") {
+      this.hearMusicLocally = settings.hearMusicLocally
+    }
+    if (typeof settings.musicVolume === "number") {
+      this.musicVolume = normalizeMusicVolume(settings.musicVolume)
+    }
     if (typeof settings.selectedMusicTrack === "string") {
       this.selectedMusicTrack = settings.selectedMusicTrack
     }
@@ -98,6 +117,9 @@ class TextOverlayManager {
         typeof overrides.previewBeforeToggle === "boolean" ? overrides.previewBeforeToggle : this.previewBeforeToggle,
       elevatorStyleMusic:
         typeof overrides.elevatorStyleMusic === "boolean" ? overrides.elevatorStyleMusic : this.elevatorStyleMusic,
+      hearMusicLocally:
+        typeof overrides.hearMusicLocally === "boolean" ? overrides.hearMusicLocally : this.hearMusicLocally,
+      musicVolume: typeof overrides.musicVolume === "number" ? normalizeMusicVolume(overrides.musicVolume) : this.musicVolume,
       selectedMusicTrack:
         typeof overrides.selectedMusicTrack === "string" ? overrides.selectedMusicTrack : this.selectedMusicTrack,
       waitingMusicUrl: typeof overrides.waitingMusicUrl === "string" ? overrides.waitingMusicUrl : this.waitingMusicUrl
@@ -443,7 +465,7 @@ class TextOverlayManager {
         const targetMusicUrl = this.waitingMusicUrl
         const shouldUseMusic = Boolean(this.enabled && this.elevatorStyleMusic && targetMusicUrl)
         this.updateGainNode(micGain, shouldUseMusic || !micSource ? 0 : 1, audioContext)
-        this.updateGainNode(musicGain, shouldUseMusic ? 1 : 0, audioContext)
+        this.updateGainNode(musicGain, shouldUseMusic ? this.musicVolume : 0, audioContext)
 
         if (!shouldUseMusic) {
           stopActiveMusicSource()
