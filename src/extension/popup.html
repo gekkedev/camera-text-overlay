@@ -155,58 +155,15 @@
         font-weight: 500;
       }
 
-      .button-group {
-        display: flex;
-        gap: 10px;
-        margin-top: 20px;
-      }
-
-      button {
-        flex: 1;
-        padding: 10px;
-        border: none;
-        border-radius: 4px;
-        font-size: 14px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: background-color 0.2s;
-        font-family: inherit;
-      }
-
-      .btn-enable {
-        background-color: #6200ea;
-        color: white;
-      }
-
-      .btn-enable:hover {
-        background-color: #7c3aed;
-      }
-
-      .btn-enable:disabled {
-        background-color: #ccc;
-        cursor: not-allowed;
-      }
-
-      .btn-disable {
-        background-color: #d32f2f;
-        color: white;
-      }
-
-      .btn-disable:hover {
-        background-color: #f44336;
-      }
-
-      button:disabled {
-        background-color: #ccc;
-        cursor: not-allowed;
-      }
-
       .status {
-        padding: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 12px 14px;
         border-radius: 4px;
         margin-bottom: 15px;
         font-weight: 500;
-        text-align: center;
       }
 
       .status.enabled {
@@ -217,6 +174,79 @@
       .status.disabled {
         background-color: #ffcccc;
         color: #c62828;
+      }
+
+      .status-copy {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+      }
+
+      .status-title {
+        font-size: 14px;
+        font-weight: 700;
+        line-height: 1.2;
+      }
+
+      .status-hint {
+        font-size: 12px;
+        line-height: 1.35;
+        color: inherit;
+        opacity: 0.82;
+      }
+
+      .toggle-switch {
+        position: relative;
+        display: inline-flex;
+        flex: 0 0 auto;
+        width: 50px;
+        height: 30px;
+      }
+
+      .toggle-switch input {
+        position: absolute;
+        opacity: 0;
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        cursor: pointer;
+      }
+
+      .toggle-slider {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        border-radius: 999px;
+        background: rgba(0, 0, 0, 0.18);
+        transition:
+          background-color 0.2s,
+          box-shadow 0.2s;
+      }
+
+      .toggle-slider::before {
+        content: "";
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+        transition: transform 0.2s;
+      }
+
+      .toggle-switch input:checked + .toggle-slider {
+        background: rgba(46, 125, 50, 0.45);
+      }
+
+      .toggle-switch input:checked + .toggle-slider::before {
+        transform: translateX(20px);
+      }
+
+      .toggle-switch input:focus-visible + .toggle-slider {
+        box-shadow: 0 0 0 3px rgba(98, 0, 234, 0.18);
       }
 
       .divider {
@@ -292,7 +322,16 @@
         </div>
       </div>
 
-      <div id="status" class="status disabled">Overlay Disabled</div>
+      <div id="status" class="status disabled">
+        <div class="status-copy">
+          <div id="statusText" class="status-title">Overlay Disabled</div>
+          <div id="statusHint" class="status-hint">Turn the overlay stream on or off.</div>
+        </div>
+        <label class="toggle-switch" for="toggleSwitch">
+          <input id="toggleSwitch" type="checkbox" role="switch" aria-label="Toggle overlay" />
+          <span class="toggle-slider" aria-hidden="true"></span>
+        </label>
+      </div>
 
       <div class="form-group">
         <label for="overlayText">Overlay Text</label>
@@ -320,11 +359,6 @@
       <div class="form-group">
         <label for="textColor">Text Color</label>
         <input type="color" id="textColor" />
-      </div>
-
-      <div class="button-group">
-        <button id="saveBtn" class="btn-enable">Save Settings</button>
-        <button id="toggleBtn" class="btn-enable">Enable Overlay</button>
       </div>
 
       <div id="previewSection" class="preview-section" hidden>

@@ -10,9 +10,10 @@ const elevatorStyleMusicInput = document.getElementById("elevatorStyleMusic")
 const selectedMusicTrackSelect = document.getElementById("selectedMusicTrack")
 const settingsToggleBtn = document.getElementById("settingsToggleBtn")
 const settingsPanel = document.getElementById("settingsPanel")
-const toggleBtn = document.getElementById("toggleBtn")
-const saveBtn = document.getElementById("saveBtn")
 const statusDiv = document.getElementById("status")
+const statusText = document.getElementById("statusText")
+const statusHint = document.getElementById("statusHint")
+const toggleSwitch = document.getElementById("toggleSwitch")
 const previewSection = document.getElementById("previewSection")
 const previewTitle = document.getElementById("previewTitle")
 const previewHint = document.getElementById("previewHint")
@@ -31,6 +32,7 @@ const MUSIC_TRACKS = [
   { fileName: "Waiting Protocol.mp3", label: "Waiting Protocol" }
 ]
 const DEFAULT_MUSIC_TRACK = MUSIC_TRACKS[0]?.fileName || ""
+const AUTO_SAVE_DELAY_MS = 150
 
 let currentState = {
   enabled: false,
@@ -42,6 +44,7 @@ let currentState = {
   elevatorStyleMusic: false,
   selectedMusicTrack: DEFAULT_MUSIC_TRACK
 }
+let pendingSaveHandle = null
 
 function normalizeSelectedMusicTrack(selectedMusicTrack) {
   if (MUSIC_TRACKS.some(track => track.fileName === selectedMusicTrack)) {
@@ -266,15 +269,17 @@ function updateUI() {
   previewSection.hidden = !currentState.previewBeforeToggle
 
   if (currentState.enabled) {
-    statusDiv.textContent = "✓ Overlay Enabled"
+    statusText.textContent = "Overlay Enabled"
+    statusHint.textContent = "Others will receive the generated overlay stream."
     statusDiv.className = "status enabled"
-    toggleBtn.textContent = "⏹️ Disable Overlay"
-    toggleBtn.className = "btn-disable"
+    toggleSwitch.checked = true
+    toggleSwitch.setAttribute("aria-checked", "true")
   } else {
-    statusDiv.textContent = "✗ Overlay Disabled"
+    statusText.textContent = "Overlay Disabled"
+    statusHint.textContent = "Your normal camera stays active until you switch it on."
     statusDiv.className = "status disabled"
-    toggleBtn.textContent = "📹 Enable Overlay"
-    toggleBtn.className = "btn-enable"
+    toggleSwitch.checked = false
+    toggleSwitch.setAttribute("aria-checked", "false")
   }
 }
 
@@ -283,19 +288,7 @@ function setSettingsMenuOpen(isOpen) {
   settingsToggleBtn.setAttribute("aria-expanded", String(isOpen))
 }
 
-function saveSettings() {
-  chrome.storage.local.set({
-    overlayEnabled: currentState.enabled,
-    overlayText: currentState.overlayText,
-    selectedFont: currentState.selectedFont,
-    bgColor: currentState.bgColor,
-    textColor: currentState.textColor,
-    previewBeforeToggle: currentState.previewBeforeToggle,
-    elevatorStyleMusic: currentState.elevatorStyleMusic,
-    selectedMusicTrack: currentState.selectedMusicTrack
-  })
-
-  // Notify content scripts of the change
+function notifyContentScripts() {
   chrome.tabs.query({}, tabs => {
     tabs.forEach(tab => {
       chrome.tabs
@@ -308,6 +301,37 @@ function saveSettings() {
         })
     })
   })
+}
+
+function saveSettings() {
+  if (pendingSaveHandle != null) {
+    clearTimeout(pendingSaveHandle)
+    pendingSaveHandle = null
+  }
+
+  chrome.storage.local.set({
+    overlayEnabled: currentState.enabled,
+    overlayText: currentState.overlayText,
+    selectedFont: currentState.selectedFont,
+    bgColor: currentState.bgColor,
+    textColor: currentState.textColor,
+    previewBeforeToggle: currentState.previewBeforeToggle,
+    elevatorStyleMusic: currentState.elevatorStyleMusic,
+    selectedMusicTrack: currentState.selectedMusicTrack
+  })
+
+  notifyContentScripts()
+}
+
+function scheduleSettingsSave() {
+  if (pendingSaveHandle != null) {
+    clearTimeout(pendingSaveHandle)
+  }
+
+  pendingSaveHandle = setTimeout(() => {
+    pendingSaveHandle = null
+    saveSettings()
+  }, AUTO_SAVE_DELAY_MS)
 }
 
 function commitToggle(targetEnabled, settings = currentState) {
@@ -324,65 +348,57 @@ function refreshOverlayPreviewIfVisible() {
   }
 }
 
-// Input change handlers - just update the currentState, save via Save button
+// Input change handlers - update the currentState and persist automatically
 overlayTextInput.addEventListener("input", () => {
   currentState.overlayText = overlayTextInput.value.trim() || "be right back 😴"
+  scheduleSettingsSave()
   refreshOverlayPreviewIfVisible()
 })
 
 selectedFontSelect.addEventListener("change", () => {
   currentState.selectedFont = selectedFontSelect.value
+  saveSettings()
   refreshOverlayPreviewIfVisible()
 })
 
 bgColorInput.addEventListener("change", () => {
   currentState.bgColor = bgColorInput.value
+  saveSettings()
   refreshOverlayPreviewIfVisible()
 })
 
 textColorInput.addEventListener("change", () => {
   currentState.textColor = textColorInput.value
+  saveSettings()
   refreshOverlayPreviewIfVisible()
 })
 
 previewBeforeToggleInput.addEventListener("change", () => {
   currentState.previewBeforeToggle = previewBeforeToggleInput.checked
+  saveSettings()
   updateUI()
   renderPreview()
 })
 
 elevatorStyleMusicInput.addEventListener("change", () => {
   currentState.elevatorStyleMusic = elevatorStyleMusicInput.checked && MUSIC_TRACKS.length > 0
+  saveSettings()
   updateUI()
 })
 
 selectedMusicTrackSelect.addEventListener("change", () => {
   currentState.selectedMusicTrack = normalizeSelectedMusicTrack(selectedMusicTrackSelect.value)
-})
-
-settingsToggleBtn.addEventListener("click", event => {
-  event.stopPropagation()
-  setSettingsMenuOpen(settingsPanel.hidden)
-})
-
-settingsPanel.addEventListener("click", event => {
-  event.stopPropagation()
-})
-
-// Save Settings button - saves the form configuration
-saveBtn.addEventListener("click", () => {
-  syncStateFromInputs()
   saveSettings()
-  refreshOverlayPreviewIfVisible()
 })
 
-// Toggle button - enables/disables the overlay
-toggleBtn.addEventListener("click", () => {
+// Toggle switch - enables/disables the overlay
+toggleSwitch.addEventListener("change", () => {
   syncStateFromInputs()
-  const targetEnabled = !currentState.enabled
+  const targetEnabled = toggleSwitch.checked
 
   if (targetEnabled && !currentState.overlayText.trim()) {
     alert("Please enter some text first")
+    toggleSwitch.checked = currentState.enabled
     return
   }
 
@@ -394,7 +410,20 @@ populateMusicTrackOptions()
 loadSettings()
 
 window.addEventListener("unload", () => {
+  if (pendingSaveHandle != null) {
+    saveSettings()
+  }
+
   stopPreviewStream()
+})
+
+settingsToggleBtn.addEventListener("click", event => {
+  event.stopPropagation()
+  setSettingsMenuOpen(settingsPanel.hidden)
+})
+
+settingsPanel.addEventListener("click", event => {
+  event.stopPropagation()
 })
 
 document.addEventListener("click", event => {
@@ -417,30 +446,69 @@ document.addEventListener("keydown", event => {
 // Listen for storage changes from other windows/tabs
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === "local") {
+    let hasExternalUpdate = false
+
     if (changes.overlayEnabled) {
-      currentState.enabled = changes.overlayEnabled.newValue
+      const enabled = changes.overlayEnabled.newValue === true
+      if (currentState.enabled !== enabled) {
+        currentState.enabled = enabled
+        hasExternalUpdate = true
+      }
     }
     if (changes.overlayText) {
-      currentState.overlayText = changes.overlayText.newValue
+      const overlayText = changes.overlayText.newValue || "be right back 😴"
+      if (currentState.overlayText !== overlayText) {
+        currentState.overlayText = overlayText
+        hasExternalUpdate = true
+      }
     }
     if (changes.selectedFont) {
-      currentState.selectedFont = changes.selectedFont.newValue
+      const selectedFont = changes.selectedFont.newValue || "Titillium Web"
+      if (currentState.selectedFont !== selectedFont) {
+        currentState.selectedFont = selectedFont
+        hasExternalUpdate = true
+      }
     }
     if (changes.bgColor) {
-      currentState.bgColor = changes.bgColor.newValue
+      const bgColor = changes.bgColor.newValue || "#101010"
+      if (currentState.bgColor !== bgColor) {
+        currentState.bgColor = bgColor
+        hasExternalUpdate = true
+      }
     }
     if (changes.textColor) {
-      currentState.textColor = changes.textColor.newValue
+      const textColor = changes.textColor.newValue || "#ffd744"
+      if (currentState.textColor !== textColor) {
+        currentState.textColor = textColor
+        hasExternalUpdate = true
+      }
     }
     if (changes.previewBeforeToggle) {
-      currentState.previewBeforeToggle = changes.previewBeforeToggle.newValue === true
+      const previewBeforeToggle = changes.previewBeforeToggle.newValue === true
+      if (currentState.previewBeforeToggle !== previewBeforeToggle) {
+        currentState.previewBeforeToggle = previewBeforeToggle
+        hasExternalUpdate = true
+      }
     }
     if (changes.elevatorStyleMusic) {
-      currentState.elevatorStyleMusic = changes.elevatorStyleMusic.newValue === true && MUSIC_TRACKS.length > 0
+      const elevatorStyleMusic = changes.elevatorStyleMusic.newValue === true && MUSIC_TRACKS.length > 0
+      if (currentState.elevatorStyleMusic !== elevatorStyleMusic) {
+        currentState.elevatorStyleMusic = elevatorStyleMusic
+        hasExternalUpdate = true
+      }
     }
     if (changes.selectedMusicTrack) {
-      currentState.selectedMusicTrack = normalizeSelectedMusicTrack(changes.selectedMusicTrack.newValue)
+      const selectedMusicTrack = normalizeSelectedMusicTrack(changes.selectedMusicTrack.newValue)
+      if (currentState.selectedMusicTrack !== selectedMusicTrack) {
+        currentState.selectedMusicTrack = selectedMusicTrack
+        hasExternalUpdate = true
+      }
     }
+
+    if (!hasExternalUpdate) {
+      return
+    }
+
     updateUI()
     renderPreview()
   }
