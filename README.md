@@ -4,40 +4,17 @@ Replace your camera stream with a customizable text for video calls. Great for "
 
 ![Preview](google-meet.png)
 
-## Use Cases
-
-- **BRB / away for a minute**: show a clear "be right back 😴" card instead of an empty chair or ceiling view.
-- **Short waiting-room handoff**: leave a clean placeholder on screen while you grab water, answer the door, or switch rooms.
-- **Low-friction status signaling**: display messages like "back in 2 min", "recording in progress", or "heads down, still listening".
-- **Lobby-style hold screen**: pair a BRB message with looping elevator-style waiting music while the overlay is active.
-
 ## Features
 
-### Two Installation Methods:
+**Use cases:** BRB messages, status cards, lobby-style hold screens — anything you want to display on your camera instead of your real feed.
 
-**Userscript:** Works with any userscript manager (TamperMonkey, GreaseMonkey, ViolentMonkey, etc.)  
-**Chrome Extension:** Native installation for Chrome/Chromium browsers
+**Two installation methods:** Userscript (any browser with TamperMonkey/ViolentMonkey/Greasemonkey) or Chrome Extension.
 
-### Customizable attributes
+**Customizable:** text, colors, font (6 built-in), looping waiting music, microphone mute while overlay is active.
 
-- text content
-- text color
-- background color
-- font selection (6 included fonts)
-- optional looping waiting music
-- optional microphone mute while the overlay is active
-- waiting music track selection
+**Controls:** Userscript manager menu (userscript) or toolbar icon (extension).
 
-### Controls
-
-**Userscript:** Access via userscript manager menu or on-page button
-**Extension:** Click the extension icon in your toolbar
-
-### Privacy
-
-- no network requests (except for _Google Fonts_)
-- neither tracking nor analytics
-- settings stored locally
+**Privacy:** no network requests except Google Fonts, no tracking, settings stored locally.
 
 ## Installation
 
@@ -67,35 +44,12 @@ Or manually:
 
 #### Using the script
 
-The userscript works through your userscript manager's menu:
+1. Click the **userscript manager icon** in the toolbar and open **"Camera Text Overlay"**.
+2. First time: click **"⚙️ Configure Settings"**, enter your text, pick colors/font. Settings save automatically.
+3. Toggle with **"🟢 Enable / 🔴 Disable Text Overlay"** from the same menu.
+4. On a call, start your camera as usual — others see your overlay instead of your real feed.
 
-1. **Access the menu:**
-   - Click your **userscript manager icon** (TamperMonkey, GreaseMonkey, etc.) in the browser toolbar
-   - Find **"Camera Text Overlay"** in the menu
-
-2. **First time setup:**
-   - Click **"⚙️ Configure Settings"**
-   - Enter your overlay text (e.g., "be right back 😴")
-   - Pick your colors and font (optional)
-   - Settings are saved automatically
-
-3. **Enable the overlay:**
-   - Menu → **"🟢 Enable Text Overlay"**
-   - The button changes to show **"🔴 Disable Text Overlay"** when active
-
-4. **On a video call:**
-   - Start your camera as usual in Google Meet, Zoom, Teams, etc.
-   - Others will see your overlay text instead of your real camera
-
-5. **Disable the overlay:**
-   - Menu → **"🔴 Disable Text Overlay"**
-   - Your camera feed returns to normal
-
-**Reset settings:**
-
-- Menu → "🔄 Reset Settings" to restore defaults
-
-**Note:** Different userscript managers have different menu styles, but all provide access to the same commands.
+Use **"🔄 Reset Settings"** to restore defaults.
 
 ### Method 2: Chrome Extension
 
@@ -123,21 +77,11 @@ Option B: **Download the pre-built extension**
 
 #### Using the Extension
 
-**First time setup:**
+1. Click the **Camera Text Overlay icon** in your toolbar.
+2. Enter your overlay text, pick colors/font, click **"Enable Overlay"**.
+3. On a call, start your camera as usual — others see your overlay. Click the icon anytime to toggle.
 
-1. Click the **Camera Text Overlay icon** in your toolbar
-2. A settings popup appears
-3. Enter your overlay text (e.g., "be right back 😴")
-4. Pick your colors and font (optional)
-5. Click **"Enable Overlay"**
-
-**On a video call:**
-
-- Start your camera as usual in Google Meet, Zoom, Teams, etc.
-- Others will see your overlay text instead of your real camera
-- Click the icon anytime to toggle overlay on/off
-
-Settings are saved automatically and sync across all tabs.
+Settings save automatically and sync across all tabs.
 
 #### Audio Notes
 
@@ -175,24 +119,7 @@ pnpm run build
 
 ### Project Structure
 
-```
-camera-text-overlay/
-├── 📄 build.js                      # Cleans and builds both methods
-├── 📄 camera-text-overlay.user.js   # Built userscript (committed to repo)
-│
-├── 📁 src/
-│   ├── 📁 shared/
-│   │   └── overlay.js                # Shared logic (reference only)
-│   ├── 📁 extension/                 # Chrome extension wrapper
-│   └── 📁 userscript/
-│       └── userscript.js             # Userscript wrapper
-│
-├── 📁 assets/
-│   └── icon.svg                      # Source icon used to generate PNG sizes
-│
-└── 📁 dist/                          # Generated (not committed)
-   └── extension/                    # Chrome extension (ready to load)
-```
+`src/shared/overlay.js` — core logic shared by both methods. `src/extension/` and `src/userscript/` are thin wrappers. `build.js` writes the userscript to the repo root and the extension to `dist/extension/`.
 
 ## How It Works
 
@@ -219,62 +146,30 @@ If you add or replace waiting-music assets, use small web-friendly files. High b
 
 The bundled waiting tracks are already lightweight `MP3` files at `64 kbps` stereo / `48 kHz`, which is adequate for this extension.
 
-## Known Limitations
+## Known Limitations & Roadmap
 
-1. **No Firefox extension** - Extension only works on Chrome/Chromium (Firefox uses different manifest)
-1. **Single font size** - Currently hardcoded to 50px
-1. **No toggle keyboard shortcut** - Could be added via Chrome commands API
-1. **Userscript waiting music is not wired up yet** - bundled music asset loading currently works only in the Chrome extension
+Current limitations:
+
+- Extension is Chrome/Chromium only (Firefox requires a different manifest)
+- Font size is hardcoded to 50px
+- No keyboard shortcut to toggle
+- Waiting music only works in the extension, not the userscript
+
+Planned:
+
+- [ ] more fonts / custom font upload
+- [ ] preset & animated overlays
+- [ ] overlay widgets, i.e. clock
+- [ ] video blur modes (different from background-only blurring)
+- [ ] Firefox extension (XPI build)
+- [ ] Chrome Web Store publishing
+- [ ] keyboard shortcuts
+- [ ] settings import/export
+- [ ] custom waiting music
 
 ## Contributing
 
-Found a bug or have a feature idea?
-
-1. Check the [Issues](https://github.com/gekkedev/camera-text-overlay/issues) page
-2. Create a new issue or pull request
-3. Include details about your browser, OS, and the video calling website
-
-### Future Enhancements
-
-Potential improvements:
-
-- [ ] more fonts
-- [ ] custom fonts via file upload
-- [ ] preset overlays (clock, message templates)
-- [ ] local custom preconfigured overlays for fast switching
-- [ ] multiple overlay styles (corners, borders, etc.)
-- [ ] video blur/blur modes instead of text
-- [ ] firefox extension version (requires XPI build)
-- [ ] chrome Web Store publishing
-- [ ] keyboard shortcuts to toggle
-- [ ] settings import/export
-- [ ] animated overlays
-
-## FAQ
-
-**Q: Will this work with Zoom/Google Meet/Microsoft Teams?**  
-A: Yes, it works with any video website that uses your camera.
-
-**Q: Can I share different overlays for different calls?**  
-A: Not simultaneously, but you can change settings at any time.
-
-**Q: Does this work on mobile?**  
-A: Mobile browsers don't support userscripts/extensions in the same way. This is designed for the desktop.
-
-**Q: Can I use custom fonts?**  
-A: Currently limited to 6 built-in fonts. Custom fonts are a potential future feature.
-
-**Q: Does the waiting music loop?**  
-A: Yes. When elevator-style music is enabled, the selected track loops for as long as the overlay stays active.
-
-**Q: Which microphone does the extension modify?**  
-A: It tampers with the browser's default system microphone input. Set the microphone you want to use as your OS default before joining the call.
-
-**Q: What if I want to go back to showing my real camera?**  
-A:
-
-- **Userscript**: Click userscript manager icon → "Camera Text Overlay" → "🔴 Disable Text Overlay"
-- **Extension**: Click the extension icon and click "Disable Overlay"
+Found a bug or have a feature idea? Check the [Issues](https://github.com/gekkedev/camera-text-overlay/issues) page or open a pull request. Include your browser, OS, and the video calling site.
 
 ---
 
