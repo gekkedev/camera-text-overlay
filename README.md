@@ -117,6 +117,9 @@ pnpm run build
 - **Userscript**: `camera-text-overlay.user.js` (root directory)
 - **Extension**: `dist/extension/` folder
 
+Releases are published automatically when the version in package.json is bumped and pushed to `main`.
+You can also trigger the Release workflow manually from GitHub Actions.
+
 ### Project Structure
 
 `src/shared/overlay.js` — core logic shared by both methods. `src/extension/` and `src/userscript/` are thin wrappers. `build.js` writes the userscript to the repo root and the extension to `dist/extension/`.

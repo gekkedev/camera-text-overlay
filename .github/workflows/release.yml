@@ -2,8 +2,10 @@ name: Release
 
 on:
   push:
-    tags:
-      - "v*.*.*" # Triggers on tags like v1.0.0, v1.2.3, etc.
+    branches: [main]
+    paths:
+      - "package.json"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -15,45 +17,76 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Determine release version from package.json
+        id: version_check
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [ -z "$VERSION" ]; then
+            echo "ERROR: package.json version is missing"
+            exit 1
+          fi
+
+          PREV_VERSION=""
+          if [ "${{ github.event_name }}" = "push" ] && [ -n "${{ github.event.before }}" ]; then
+            PREV_VERSION=$(git show "${{ github.event.before }}:package.json" 2>/dev/null | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{console.log(JSON.parse(d).version||'')}catch{console.log('')}})")
+          fi
+
+          if [ "${{ github.event_name }}" = "push" ] && [ "$PREV_VERSION" = "$VERSION" ]; then
+            echo "package.json changed but version stayed at $VERSION; skipping release."
+            SHOULD_RELEASE=false
+          else
+            SHOULD_RELEASE=true
+          fi
+
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "PREV_VERSION=$PREV_VERSION" >> $GITHUB_OUTPUT
+          echo "SHOULD_RELEASE=$SHOULD_RELEASE" >> $GITHUB_OUTPUT
 
       - name: Setup pnpm
+        if: steps.version_check.outputs.SHOULD_RELEASE == 'true'
         uses: pnpm/action-setup@v6
         with:
           version: 10
 
       - name: Setup Node.js
+        if: steps.version_check.outputs.SHOULD_RELEASE == 'true'
         uses: actions/setup-node@v6
         with:
           node-version: "22"
           cache: "pnpm"
 
       - name: Install dependencies
+        if: steps.version_check.outputs.SHOULD_RELEASE == 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Build project
+        if: steps.version_check.outputs.SHOULD_RELEASE == 'true'
         run: pnpm run build
 
-      - name: Get version from tag
-        id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-
       - name: Create extension ZIP
+        if: steps.version_check.outputs.SHOULD_RELEASE == 'true'
         run: |
           cd dist/extension
-          zip -r ../../camera-text-overlay-extension-v${{ steps.get_version.outputs.VERSION }}.zip .
+          zip -r ../../camera-text-overlay-extension-v${{ steps.version_check.outputs.VERSION }}.zip .
           cd ../..
 
       - name: Generate checksums
+        if: steps.version_check.outputs.SHOULD_RELEASE == 'true'
         run: |
           sha256sum camera-text-overlay.user.js > checksums.txt
-          sha256sum camera-text-overlay-extension-v${{ steps.get_version.outputs.VERSION }}.zip >> checksums.txt
+          sha256sum camera-text-overlay-extension-v${{ steps.version_check.outputs.VERSION }}.zip >> checksums.txt
           cat checksums.txt
 
       - name: Create release notes
+        if: steps.version_check.outputs.SHOULD_RELEASE == 'true'
         id: release_notes
         run: |
           cat > release_notes.md << 'EOF'
-          ## 🎥 Camera Text Overlay v${{ steps.get_version.outputs.VERSION }}
+          ## 🎥 Camera Text Overlay v${{ steps.version_check.outputs.VERSION }}
 
           Replace your camera stream with a customizable text for video calls.
 
@@ -69,15 +102,20 @@ jobs:
           $(cat checksums.txt)
           ```
           EOF
+
           cat release_notes.md
 
       - name: Create GitHub Release
+        if: steps.version_check.outputs.SHOULD_RELEASE == 'true'
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: v${{ steps.version_check.outputs.VERSION }}
+          name: v${{ steps.version_check.outputs.VERSION }}
+          target_commitish: ${{ github.sha }}
           body_path: release_notes.md
           files: |
             camera-text-overlay.user.js
-            camera-text-overlay-extension-v${{ steps.get_version.outputs.VERSION }}.zip
+            camera-text-overlay-extension-v${{ steps.version_check.outputs.VERSION }}.zip
             checksums.txt
           draft: false
           prerelease: false
@@ -87,13 +125,21 @@ jobs:
 
       - name: Create release summary
         run: |
-          echo "## 🚀 Release v${{ steps.get_version.outputs.VERSION }} Published!" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📦 Artifacts" >> $GITHUB_STEP_SUMMARY
-          echo "- 📜 Userscript: $(wc -c < camera-text-overlay.user.js) bytes" >> $GITHUB_STEP_SUMMARY
-          echo "- 🗜️ Extension ZIP: $(wc -c < camera-text-overlay-extension-v${{ steps.get_version.outputs.VERSION }}.zip) bytes" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🔗 Links" >> $GITHUB_STEP_SUMMARY
-          echo "- [View Release](https://github.com/${{ github.repository }}/releases/tag/v${{ steps.get_version.outputs.VERSION }})" >> $GITHUB_STEP_SUMMARY
-          echo "- [Download Userscript](https://github.com/${{ github.repository }}/releases/download/v${{ steps.get_version.outputs.VERSION }}/camera-text-overlay.user.js)" >> $GITHUB_STEP_SUMMARY
-          echo "- [Download Extension](https://github.com/${{ github.repository }}/releases/download/v${{ steps.get_version.outputs.VERSION }}/camera-text-overlay-extension-v${{ steps.get_version.outputs.VERSION }}.zip)" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.version_check.outputs.SHOULD_RELEASE }}" = "true" ]; then
+            echo "## 🚀 Release v${{ steps.version_check.outputs.VERSION }} Published!" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 📦 Artifacts" >> $GITHUB_STEP_SUMMARY
+            echo "- 📜 Userscript: $(wc -c < camera-text-overlay.user.js) bytes" >> $GITHUB_STEP_SUMMARY
+            echo "- 🗜️ Extension ZIP: $(wc -c < camera-text-overlay-extension-v${{ steps.version_check.outputs.VERSION }}.zip) bytes" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 🔗 Links" >> $GITHUB_STEP_SUMMARY
+            echo "- [View Release](https://github.com/${{ github.repository }}/releases/tag/v${{ steps.version_check.outputs.VERSION }})" >> $GITHUB_STEP_SUMMARY
+            echo "- [Download Userscript](https://github.com/${{ github.repository }}/releases/download/v${{ steps.version_check.outputs.VERSION }}/camera-text-overlay.user.js)" >> $GITHUB_STEP_SUMMARY
+            echo "- [Download Extension](https://github.com/${{ github.repository }}/releases/download/v${{ steps.version_check.outputs.VERSION }}/camera-text-overlay-extension-v${{ steps.version_check.outputs.VERSION }}.zip)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ℹ️ Release skipped" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "- Version in package.json: ${{ steps.version_check.outputs.VERSION }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Previous package.json version: ${{ steps.version_check.outputs.PREV_VERSION }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Reason: no new package.json version detected" >> $GITHUB_STEP_SUMMARY
+          fi
