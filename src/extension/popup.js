@@ -7,10 +7,13 @@ const bgColorInput = document.getElementById("bgColor")
 const textColorInput = document.getElementById("textColor")
 const previewBeforeToggleInput = document.getElementById("previewBeforeToggle")
 const elevatorStyleMusicInput = document.getElementById("elevatorStyleMusic")
+const disableMicrophoneWhenOverlayActiveInput = document.getElementById("disableMicrophoneWhenOverlayActive")
 const hearMusicLocallyInput = document.getElementById("hearMusicLocally")
 const musicVolumeInput = document.getElementById("musicVolume")
 const musicVolumeValue = document.getElementById("musicVolumeValue")
 const selectedMusicTrackSelect = document.getElementById("selectedMusicTrack")
+const musicSettingsGroup = document.getElementById("musicSettingsGroup")
+const microphoneMuteGroup = document.getElementById("microphoneMuteGroup")
 const settingsToggleBtn = document.getElementById("settingsToggleBtn")
 const settingsPanel = document.getElementById("settingsPanel")
 const statusDiv = document.getElementById("status")
@@ -46,6 +49,7 @@ let currentState = {
   textColor: "#ffd744",
   previewBeforeToggle: false,
   elevatorStyleMusic: false,
+  disableMicrophoneWhenOverlayActive: true,
   hearMusicLocally: true,
   musicVolume: DEFAULT_MUSIC_VOLUME,
   selectedMusicTrack: DEFAULT_MUSIC_TRACK
@@ -95,6 +99,7 @@ function loadSettings() {
       "textColor",
       "previewBeforeToggle",
       "elevatorStyleMusic",
+      "disableMicrophoneWhenOverlayActive",
       "hearMusicLocally",
       "musicVolume",
       "selectedMusicTrack"
@@ -107,6 +112,7 @@ function loadSettings() {
       currentState.textColor = result.textColor || "#ffd744"
       currentState.previewBeforeToggle = result.previewBeforeToggle === true
       currentState.elevatorStyleMusic = result.elevatorStyleMusic === true && MUSIC_TRACKS.length > 0
+      currentState.disableMicrophoneWhenOverlayActive = result.disableMicrophoneWhenOverlayActive === true
       currentState.hearMusicLocally = result.hearMusicLocally !== false
       currentState.musicVolume = normalizeMusicVolume(result.musicVolume)
       currentState.selectedMusicTrack = normalizeSelectedMusicTrack(result.selectedMusicTrack)
@@ -124,6 +130,7 @@ function syncStateFromInputs() {
   currentState.textColor = textColorInput.value
   currentState.previewBeforeToggle = previewBeforeToggleInput.checked
   currentState.elevatorStyleMusic = elevatorStyleMusicInput.checked && MUSIC_TRACKS.length > 0
+  currentState.disableMicrophoneWhenOverlayActive = disableMicrophoneWhenOverlayActiveInput.checked
   currentState.hearMusicLocally = hearMusicLocallyInput.checked
   currentState.musicVolume = normalizeMusicVolume(Number(musicVolumeInput.value) / 100)
   currentState.selectedMusicTrack = normalizeSelectedMusicTrack(selectedMusicTrackSelect.value)
@@ -136,6 +143,8 @@ function applySnapshot(settings = {}) {
   currentState.textColor = settings.textColor ?? currentState.textColor
   currentState.previewBeforeToggle = settings.previewBeforeToggle ?? currentState.previewBeforeToggle
   currentState.elevatorStyleMusic = settings.elevatorStyleMusic ?? currentState.elevatorStyleMusic
+  currentState.disableMicrophoneWhenOverlayActive =
+    settings.disableMicrophoneWhenOverlayActive ?? currentState.disableMicrophoneWhenOverlayActive
   currentState.hearMusicLocally = settings.hearMusicLocally ?? currentState.hearMusicLocally
   currentState.musicVolume = normalizeMusicVolume(settings.musicVolume ?? currentState.musicVolume)
   currentState.selectedMusicTrack = normalizeSelectedMusicTrack(
@@ -293,6 +302,10 @@ function updateUI() {
   previewBeforeToggleInput.checked = currentState.previewBeforeToggle
   elevatorStyleMusicInput.checked = currentState.elevatorStyleMusic
   elevatorStyleMusicInput.disabled = MUSIC_TRACKS.length === 0
+  disableMicrophoneWhenOverlayActiveInput.checked = currentState.disableMicrophoneWhenOverlayActive
+  const showMusicSettings = MUSIC_TRACKS.length > 0 && currentState.elevatorStyleMusic
+  musicSettingsGroup.hidden = !showMusicSettings
+  microphoneMuteGroup.hidden = showMusicSettings
   hearMusicLocallyInput.checked = currentState.hearMusicLocally
   hearMusicLocallyInput.disabled = MUSIC_TRACKS.length === 0 || !currentState.elevatorStyleMusic
   musicVolumeInput.value = String(Math.round(currentState.musicVolume * 100))
@@ -351,6 +364,7 @@ function saveSettings() {
     textColor: currentState.textColor,
     previewBeforeToggle: currentState.previewBeforeToggle,
     elevatorStyleMusic: currentState.elevatorStyleMusic,
+    disableMicrophoneWhenOverlayActive: currentState.disableMicrophoneWhenOverlayActive,
     hearMusicLocally: currentState.hearMusicLocally,
     musicVolume: currentState.musicVolume,
     selectedMusicTrack: currentState.selectedMusicTrack
@@ -420,6 +434,11 @@ elevatorStyleMusicInput.addEventListener("change", () => {
   currentState.elevatorStyleMusic = elevatorStyleMusicInput.checked && MUSIC_TRACKS.length > 0
   saveSettings()
   updateUI()
+})
+
+disableMicrophoneWhenOverlayActiveInput.addEventListener("change", () => {
+  currentState.disableMicrophoneWhenOverlayActive = disableMicrophoneWhenOverlayActiveInput.checked
+  saveSettings()
 })
 
 hearMusicLocallyInput.addEventListener("change", () => {
@@ -542,6 +561,13 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
       const elevatorStyleMusic = changes.elevatorStyleMusic.newValue === true && MUSIC_TRACKS.length > 0
       if (currentState.elevatorStyleMusic !== elevatorStyleMusic) {
         currentState.elevatorStyleMusic = elevatorStyleMusic
+        hasExternalUpdate = true
+      }
+    }
+    if (changes.disableMicrophoneWhenOverlayActive) {
+      const disableMicrophoneWhenOverlayActive = changes.disableMicrophoneWhenOverlayActive.newValue === true
+      if (currentState.disableMicrophoneWhenOverlayActive !== disableMicrophoneWhenOverlayActive) {
+        currentState.disableMicrophoneWhenOverlayActive = disableMicrophoneWhenOverlayActive
         hasExternalUpdate = true
       }
     }

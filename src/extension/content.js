@@ -196,6 +196,7 @@ async function normalizeSettings(settings = {}) {
     textColor: settings.textColor || DEFAULT_OVERLAY_SETTINGS.textColor,
     previewBeforeToggle: settings.previewBeforeToggle === true,
     elevatorStyleMusic: settings.elevatorStyleMusic === true && MUSIC_TRACK_FILES.length > 0,
+    disableMicrophoneWhenOverlayActive: settings.disableMicrophoneWhenOverlayActive === true,
     hearMusicLocally: settings.hearMusicLocally !== false,
     musicVolume: normalizeMusicVolume(settings.musicVolume),
     selectedMusicTrack,
@@ -226,6 +227,7 @@ chrome.storage.local.get(
     "textColor",
     "previewBeforeToggle",
     "elevatorStyleMusic",
+    "disableMicrophoneWhenOverlayActive",
     "hearMusicLocally",
     "musicVolume",
     "selectedMusicTrack"
@@ -239,6 +241,7 @@ chrome.storage.local.get(
       textColor: result.textColor,
       previewBeforeToggle: result.previewBeforeToggle === true,
       elevatorStyleMusic: result.elevatorStyleMusic === true,
+      disableMicrophoneWhenOverlayActive: result.disableMicrophoneWhenOverlayActive === true,
       hearMusicLocally: result.hearMusicLocally !== false,
       musicVolume: normalizeMusicVolume(result.musicVolume),
       selectedMusicTrack: result.selectedMusicTrack

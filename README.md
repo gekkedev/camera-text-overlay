@@ -25,6 +25,7 @@ Replace your camera stream with a customizable text for video calls. Great for "
 - background color
 - font selection (6 included fonts)
 - optional looping waiting music
+- optional microphone mute while the overlay is active
 - waiting music track selection
 
 ### Controls
@@ -199,7 +200,7 @@ The script intercepts your browser's `getUserMedia()` API call (used by video ap
 
 1. **Captures** the camera stream
 2. **Draws** your custom text on a canvas if enabled
-3. **Switches** outgoing audio between your real microphone and the selected looping waiting track when enabled
+3. **Switches** outgoing audio between your real microphone, silence, and the selected looping waiting track based on your overlay audio settings
 4. **Returns** the modified stream to the webpage
 
 Since the modification happens at the browser level, video calling apps (Google Meet, Zoom, Teams, etc.) see your overlay stream instead of your real camera.

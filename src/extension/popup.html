@@ -330,23 +330,32 @@
               <input type="checkbox" id="elevatorStyleMusic" />
               <span>Elevator-style music</span>
             </label>
-            <label class="checkbox-field" for="hearMusicLocally">
-              <input type="checkbox" id="hearMusicLocally" />
-              <span>Let me hear the music too</span>
-            </label>
-            <div class="info-text">If Chrome blocks playback at first, click once in the meeting tab.</div>
-            <div class="form-group">
-              <label class="range-label" for="musicVolume">
-                <span>Music Volume</span>
-                <span id="musicVolumeValue" class="range-value">20%</span>
+            <div id="musicSettingsGroup">
+              <label class="checkbox-field" for="hearMusicLocally">
+                <input type="checkbox" id="hearMusicLocally" />
+                <span>Let me hear the music too</span>
               </label>
-              <input type="range" id="musicVolume" min="0" max="100" step="1" />
-              <div class="info-text">Lower by default so it sits well below normal mic presence.</div>
+              <div class="info-text">If Chrome blocks playback at first, click once in the meeting tab.</div>
+              <div class="form-group">
+                <label class="range-label" for="musicVolume">
+                  <span>Music Volume</span>
+                  <span id="musicVolumeValue" class="range-value">20%</span>
+                </label>
+                <input type="range" id="musicVolume" min="0" max="100" step="1" />
+                <div class="info-text">Lower by default so it sits well below normal mic presence.</div>
+              </div>
+              <div class="form-group">
+                <label for="selectedMusicTrack">Track</label>
+                <select id="selectedMusicTrack"></select>
+                <div class="info-text">Loops while the overlay is active and replaces your microphone audio.</div>
+              </div>
             </div>
-            <div class="form-group">
-              <label for="selectedMusicTrack">Track</label>
-              <select id="selectedMusicTrack"></select>
-              <div class="info-text">Loops while the overlay is active and replaces your microphone audio.</div>
+            <div id="microphoneMuteGroup" hidden>
+              <label class="checkbox-field" for="disableMicrophoneWhenOverlayActive">
+                <input type="checkbox" id="disableMicrophoneWhenOverlayActive" />
+                <span>Disable microphone while overlay is active</span>
+              </label>
+              <div class="info-text">Keeps your outgoing audio silent until you switch the overlay off.</div>
             </div>
           </div>
         </div>

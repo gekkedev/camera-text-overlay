@@ -16,6 +16,7 @@ function normalizeSettings(settings = {}) {
     textColor: settings.textColor || DEFAULT_OVERLAY_SETTINGS.textColor,
     previewBeforeToggle: settings.previewBeforeToggle === true,
     elevatorStyleMusic: settings.elevatorStyleMusic === true,
+    disableMicrophoneWhenOverlayActive: settings.disableMicrophoneWhenOverlayActive === true,
     hearMusicLocally: settings.hearMusicLocally !== false,
     musicVolume:
       typeof settings.musicVolume === "number" && Number.isFinite(settings.musicVolume)
