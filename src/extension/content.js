@@ -4,12 +4,9 @@
 /*__OVERLAY_SHARED__*/
 
 const MESSAGE_SOURCE = "camera-text-overlay-extension"
-const MUSIC_TRACK_FILES = [
-  "Corporate Calm™.mp3",
-  "Sky Lobby Drift.mp3",
-  "Soft Floors, Slow Doors.mp3",
-  "Waiting Protocol.mp3"
-]
+const MUSIC_TRACK_FILES = Object.freeze(
+  /*__MUSIC_TRACK_FILES__*/ []
+)
 const DEFAULT_MUSIC_TRACK = MUSIC_TRACK_FILES[0] || ""
 const DEFAULT_MUSIC_VOLUME = 0.2
 let lastSettings = null
@@ -100,11 +97,11 @@ function getLocalWaitingMusicAudio() {
 function shouldPlayWaitingMusicLocally(settings = lastSettings) {
   return Boolean(
     isTopLevelFrame &&
-      settings &&
-      settings.enabled === true &&
-      settings.elevatorStyleMusic === true &&
-      settings.hearMusicLocally === true &&
-      settings.waitingMusicUrl
+    settings &&
+    settings.enabled === true &&
+    settings.elevatorStyleMusic === true &&
+    settings.hearMusicLocally === true &&
+    settings.waitingMusicUrl
   )
 }
 
@@ -266,9 +263,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 if (isTopLevelFrame) {
   LOCAL_WAITING_MUSIC_UNLOCK_EVENTS.forEach(eventName => {
-    window.addEventListener(eventName, () => {
-      attemptLocalWaitingMusicPlayback()
-    }, true)
+    window.addEventListener(
+      eventName,
+      () => {
+        attemptLocalWaitingMusicPlayback()
+      },
+      true
+    )
   })
 }
 

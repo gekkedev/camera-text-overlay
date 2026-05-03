@@ -16,6 +16,7 @@ const EXTENSION_DIR = path.join(DIST_DIR, "extension")
 const ICON_SOURCE = path.join(ROOT_DIR, "assets", "icon.svg")
 const SHARED_OVERLAY_PATH = path.join(SOURCE_DIR, "shared", "overlay.js")
 const SHARED_TOKEN = "/*__OVERLAY_SHARED__*/"
+const MUSIC_TRACK_FILES_TOKEN = "/*__MUSIC_TRACK_FILES__*/ []"
 
 console.log("🔨 Building Camera Text Overlay...")
 
@@ -90,6 +91,28 @@ function inlineSharedOverlay(source) {
   return source.replace(SHARED_TOKEN, sharedInline)
 }
 
+function loadMusicTrackFilesInline() {
+  const extensionMusicDir = path.join(SOURCE_DIR, "extension", "music")
+  if (!fs.existsSync(extensionMusicDir)) {
+    return "[]"
+  }
+
+  return JSON.stringify(
+    fs.readdirSync(extensionMusicDir, { withFileTypes: true })
+      .filter(entry => entry.isFile())
+      .map(entry => entry.name)
+      .sort()
+  )
+}
+
+function inlineMusicTrackFiles(source) {
+  if (!source.includes(MUSIC_TRACK_FILES_TOKEN)) {
+    return source
+  }
+
+  return source.replace(MUSIC_TRACK_FILES_TOKEN, loadMusicTrackFilesInline())
+}
+
 async function main() {
   console.log("🧹 Cleaning build artifacts...")
   removeDir(DIST_DIR)
@@ -109,7 +132,7 @@ async function main() {
     if (fs.existsSync(src)) {
       if (file === "content.js" || file === "page-bridge.js") {
         const contentSource = fs.readFileSync(src, "utf8")
-        const inlined = inlineSharedOverlay(contentSource)
+        const inlined = inlineMusicTrackFiles(inlineSharedOverlay(contentSource))
         fs.writeFileSync(dest, inlined)
       } else {
         fs.copyFileSync(src, dest)
