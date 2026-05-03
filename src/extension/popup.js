@@ -20,6 +20,7 @@ const statusDiv = document.getElementById("status")
 const statusText = document.getElementById("statusText")
 const statusHint = document.getElementById("statusHint")
 const toggleSwitch = document.getElementById("toggleSwitch")
+const presetButtons = Array.from(document.querySelectorAll("[data-preset-id]"))
 const previewSection = document.getElementById("previewSection")
 const previewTitle = document.getElementById("previewTitle")
 const previewHint = document.getElementById("previewHint")
@@ -40,6 +41,57 @@ const MUSIC_TRACKS = [
 const DEFAULT_MUSIC_TRACK = MUSIC_TRACKS[0]?.fileName || ""
 const AUTO_SAVE_DELAY_MS = 150
 const DEFAULT_MUSIC_VOLUME = 0.2
+const PRESET_SCREENS = [
+  {
+    id: "quick-coffee",
+    label: "Quick coffee",
+    settings: {
+      overlayText: "be right back ☕",
+      selectedFont: "Titillium Web",
+      bgColor: "#101010",
+      textColor: "#ffd744",
+      elevatorStyleMusic: false,
+      disableMicrophoneWhenOverlayActive: true
+    }
+  },
+  {
+    id: "recording",
+    label: "Recording",
+    settings: {
+      overlayText: "recording in progress 🔴",
+      selectedFont: "Verdana",
+      bgColor: "#a30000",
+      textColor: "#fff5f5",
+      elevatorStyleMusic: false,
+      disableMicrophoneWhenOverlayActive: true
+    }
+  },
+  {
+    id: "heads-down",
+    label: "Heads down",
+    settings: {
+      overlayText: "heads down, still listening",
+      selectedFont: "Georgia",
+      bgColor: "#0a3550",
+      textColor: "#f3fbff",
+      elevatorStyleMusic: false,
+      disableMicrophoneWhenOverlayActive: true
+    }
+  },
+  {
+    id: "power-nap",
+    label: "Power nap",
+    settings: {
+      overlayText: "power nap 😴",
+      selectedFont: "Titillium Web",
+      bgColor: "#101010",
+      textColor: "#ffd744",
+      elevatorStyleMusic: false,
+      disableMicrophoneWhenOverlayActive: true
+    }
+  }
+]
+const DEFAULT_PRESET_ID = PRESET_SCREENS[0]?.id || ""
 
 let currentState = {
   enabled: false,
@@ -52,9 +104,62 @@ let currentState = {
   disableMicrophoneWhenOverlayActive: true,
   hearMusicLocally: true,
   musicVolume: DEFAULT_MUSIC_VOLUME,
-  selectedMusicTrack: DEFAULT_MUSIC_TRACK
+  selectedMusicTrack: DEFAULT_MUSIC_TRACK,
+  selectedPresetId: DEFAULT_PRESET_ID,
+  hasCustomSettings: false
 }
 let pendingSaveHandle = null
+
+function getPresetById(presetId) {
+  return PRESET_SCREENS.find(preset => preset.id === presetId) || null
+}
+
+function hasAnySavedOverlaySetting(storageResult) {
+  const persistedKeys = [
+    "overlayText",
+    "selectedFont",
+    "bgColor",
+    "textColor",
+    "previewBeforeToggle",
+    "elevatorStyleMusic",
+    "disableMicrophoneWhenOverlayActive",
+    "hearMusicLocally",
+    "musicVolume",
+    "selectedMusicTrack"
+  ]
+
+  return persistedKeys.some(key => storageResult[key] !== undefined)
+}
+
+function markSettingsAsCustom() {
+  currentState.hasCustomSettings = true
+  currentState.selectedPresetId = "custom"
+  updatePresetUI()
+}
+
+function applyPreset(presetId, options = {}) {
+  const preset = getPresetById(presetId)
+  if (!preset) {
+    return false
+  }
+
+  applySnapshot(preset.settings)
+  currentState.selectedPresetId = preset.id
+  currentState.hasCustomSettings = false
+
+  if (options.enableOverlay !== false) {
+    currentState.enabled = true
+  }
+
+  return true
+}
+
+function updatePresetUI() {
+  presetButtons.forEach(button => {
+    const isActive = currentState.selectedPresetId === button.dataset.presetId
+    button.classList.toggle("is-active", isActive)
+  })
+}
 
 function normalizeSelectedMusicTrack(selectedMusicTrack) {
   if (MUSIC_TRACKS.some(track => track.fileName === selectedMusicTrack)) {
@@ -102,9 +207,14 @@ function loadSettings() {
       "disableMicrophoneWhenOverlayActive",
       "hearMusicLocally",
       "musicVolume",
-      "selectedMusicTrack"
+      "selectedMusicTrack",
+      "selectedPresetId",
+      "hasCustomOverlaySettings"
     ],
     result => {
+      const hasStoredSettings = hasAnySavedOverlaySetting(result)
+      const hasCustomSettings = result.hasCustomOverlaySettings === true || hasStoredSettings
+
       currentState.enabled = result.overlayEnabled === true
       currentState.overlayText = result.overlayText || "be right back 😴"
       currentState.selectedFont = result.selectedFont || "Titillium Web"
@@ -116,6 +226,13 @@ function loadSettings() {
       currentState.hearMusicLocally = result.hearMusicLocally !== false
       currentState.musicVolume = normalizeMusicVolume(result.musicVolume)
       currentState.selectedMusicTrack = normalizeSelectedMusicTrack(result.selectedMusicTrack)
+      currentState.selectedPresetId =
+        getPresetById(result.selectedPresetId)?.id || (hasCustomSettings ? "custom" : DEFAULT_PRESET_ID)
+      currentState.hasCustomSettings = hasCustomSettings
+
+      if (!hasCustomSettings) {
+        applyPreset(DEFAULT_PRESET_ID, { enableOverlay: false })
+      }
 
       updateUI()
       renderPreview()
@@ -328,6 +445,8 @@ function updateUI() {
     toggleSwitch.checked = false
     toggleSwitch.setAttribute("aria-checked", "false")
   }
+
+  updatePresetUI()
 }
 
 function setSettingsMenuOpen(isOpen) {
@@ -367,7 +486,9 @@ function saveSettings() {
     disableMicrophoneWhenOverlayActive: currentState.disableMicrophoneWhenOverlayActive,
     hearMusicLocally: currentState.hearMusicLocally,
     musicVolume: currentState.musicVolume,
-    selectedMusicTrack: currentState.selectedMusicTrack
+    selectedMusicTrack: currentState.selectedMusicTrack,
+    selectedPresetId: currentState.selectedPresetId,
+    hasCustomOverlaySettings: currentState.hasCustomSettings
   })
 
   notifyContentScripts()
@@ -400,30 +521,35 @@ function refreshOverlayPreviewIfVisible() {
 
 // Input change handlers - update the currentState and persist automatically
 overlayTextInput.addEventListener("input", () => {
+  markSettingsAsCustom()
   currentState.overlayText = overlayTextInput.value.trim() || "be right back 😴"
   scheduleSettingsSave()
   refreshOverlayPreviewIfVisible()
 })
 
 selectedFontSelect.addEventListener("change", () => {
+  markSettingsAsCustom()
   currentState.selectedFont = selectedFontSelect.value
   saveSettings()
   refreshOverlayPreviewIfVisible()
 })
 
 bgColorInput.addEventListener("change", () => {
+  markSettingsAsCustom()
   currentState.bgColor = bgColorInput.value
   saveSettings()
   refreshOverlayPreviewIfVisible()
 })
 
 textColorInput.addEventListener("change", () => {
+  markSettingsAsCustom()
   currentState.textColor = textColorInput.value
   saveSettings()
   refreshOverlayPreviewIfVisible()
 })
 
 previewBeforeToggleInput.addEventListener("change", () => {
+  markSettingsAsCustom()
   currentState.previewBeforeToggle = previewBeforeToggleInput.checked
   saveSettings()
   updateUI()
@@ -431,31 +557,49 @@ previewBeforeToggleInput.addEventListener("change", () => {
 })
 
 elevatorStyleMusicInput.addEventListener("change", () => {
+  markSettingsAsCustom()
   currentState.elevatorStyleMusic = elevatorStyleMusicInput.checked && MUSIC_TRACKS.length > 0
   saveSettings()
   updateUI()
 })
 
 disableMicrophoneWhenOverlayActiveInput.addEventListener("change", () => {
+  markSettingsAsCustom()
   currentState.disableMicrophoneWhenOverlayActive = disableMicrophoneWhenOverlayActiveInput.checked
   saveSettings()
 })
 
 hearMusicLocallyInput.addEventListener("change", () => {
+  markSettingsAsCustom()
   currentState.hearMusicLocally = hearMusicLocallyInput.checked
   saveSettings()
   updateUI()
 })
 
 musicVolumeInput.addEventListener("input", () => {
+  markSettingsAsCustom()
   currentState.musicVolume = normalizeMusicVolume(Number(musicVolumeInput.value) / 100)
   musicVolumeValue.textContent = formatMusicVolume(currentState.musicVolume)
   scheduleSettingsSave()
 })
 
 selectedMusicTrackSelect.addEventListener("change", () => {
+  markSettingsAsCustom()
   currentState.selectedMusicTrack = normalizeSelectedMusicTrack(selectedMusicTrackSelect.value)
   saveSettings()
+})
+
+presetButtons.forEach(button => {
+  button.addEventListener("click", () => {
+    const presetId = button.dataset.presetId
+    if (!presetId || !applyPreset(presetId, { enableOverlay: true })) {
+      return
+    }
+
+    saveSettings()
+    updateUI()
+    renderPreview()
+  })
 })
 
 // Toggle switch - enables/disables the overlay
@@ -589,6 +733,20 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
       const selectedMusicTrack = normalizeSelectedMusicTrack(changes.selectedMusicTrack.newValue)
       if (currentState.selectedMusicTrack !== selectedMusicTrack) {
         currentState.selectedMusicTrack = selectedMusicTrack
+        hasExternalUpdate = true
+      }
+    }
+    if (changes.selectedPresetId) {
+      const selectedPresetId = getPresetById(changes.selectedPresetId.newValue)?.id || "custom"
+      if (currentState.selectedPresetId !== selectedPresetId) {
+        currentState.selectedPresetId = selectedPresetId
+        hasExternalUpdate = true
+      }
+    }
+    if (changes.hasCustomOverlaySettings) {
+      const hasCustomSettings = changes.hasCustomOverlaySettings.newValue === true
+      if (currentState.hasCustomSettings !== hasCustomSettings) {
+        currentState.hasCustomSettings = hasCustomSettings
         hasExternalUpdate = true
       }
     }
