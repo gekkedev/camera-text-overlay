@@ -98,7 +98,8 @@ function loadMusicTrackFilesInline() {
   }
 
   return JSON.stringify(
-    fs.readdirSync(extensionMusicDir, { withFileTypes: true })
+    fs
+      .readdirSync(extensionMusicDir, { withFileTypes: true })
       .filter(entry => entry.isFile())
       .map(entry => entry.name)
       .sort()

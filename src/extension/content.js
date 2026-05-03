@@ -4,9 +4,7 @@
 /*__OVERLAY_SHARED__*/
 
 const MESSAGE_SOURCE = "camera-text-overlay-extension"
-const MUSIC_TRACK_FILES = Object.freeze(
-  /*__MUSIC_TRACK_FILES__*/ []
-)
+const MUSIC_TRACK_FILES = Object.freeze(/*__MUSIC_TRACK_FILES__*/ [])
 const DEFAULT_MUSIC_TRACK = MUSIC_TRACK_FILES[0] || ""
 const DEFAULT_MUSIC_VOLUME = 0.2
 let lastSettings = null

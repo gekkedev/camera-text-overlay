@@ -100,7 +100,8 @@ export class TextOverlayManager {
         typeof overrides.elevatorStyleMusic === "boolean" ? overrides.elevatorStyleMusic : this.elevatorStyleMusic,
       hearMusicLocally:
         typeof overrides.hearMusicLocally === "boolean" ? overrides.hearMusicLocally : this.hearMusicLocally,
-      musicVolume: typeof overrides.musicVolume === "number" ? normalizeMusicVolume(overrides.musicVolume) : this.musicVolume,
+      musicVolume:
+        typeof overrides.musicVolume === "number" ? normalizeMusicVolume(overrides.musicVolume) : this.musicVolume,
       selectedMusicTrack:
         typeof overrides.selectedMusicTrack === "string" ? overrides.selectedMusicTrack : this.selectedMusicTrack,
       waitingMusicUrl: typeof overrides.waitingMusicUrl === "string" ? overrides.waitingMusicUrl : this.waitingMusicUrl
@@ -261,7 +262,8 @@ export class TextOverlayManager {
   decorateAudioTrack({ mixedTrack, sourceTrack, cleanup }) {
     if (!mixedTrack) return
 
-    const nativeGetSettings = typeof mixedTrack.getSettings === "function" ? mixedTrack.getSettings.bind(mixedTrack) : null
+    const nativeGetSettings =
+      typeof mixedTrack.getSettings === "function" ? mixedTrack.getSettings.bind(mixedTrack) : null
     const nativeGetCapabilities =
       typeof mixedTrack.getCapabilities === "function" ? mixedTrack.getCapabilities.bind(mixedTrack) : null
     const nativeGetConstraints =
